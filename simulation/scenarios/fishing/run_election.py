@@ -271,7 +271,11 @@ def run(
       if cfg.env.class_name == "fishing_perturbation_env"
       else FishingConcurrentEnv
   )
-  env = env_class(cfg.env, experiment_storage, agent_id_to_name)
+  env = env_class(
+      cfg.env,
+      experiment_storage,
+      agent_id_to_name,
+      num_agents=TOTAL_NUM_PERSONAS)
   agent_id, obs = env.reset()
   curr_round = env.num_round
 
