@@ -1,0 +1,28 @@
+code_version: v7.0
+group_name: ''
+
+llm:
+  path: openrouter
+  backend: OpenRouter
+  is_api: true
+  render: false
+  temperature: 0.0
+  top_p: 1.0
+  base_url: "https://openrouter.ai/api/v1"  # Replace with your actual vONF endpoint URL.
+  api_key: "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"
+  mix_llm : 0
+
+seed: 42
+debug: false
+
+defaults:
+- experiment: basic
+
+hydra:
+  run:
+    dir: ./outputs/${uuid:}
+  searchpath:
+    - ./simulation/scenarios/fishing/conf
+    - ./simulation/scenarios/sheep/conf
+    - ./simulation/scenarios/pollution/conf
+
