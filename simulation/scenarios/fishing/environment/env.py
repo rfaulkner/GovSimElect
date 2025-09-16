@@ -23,9 +23,9 @@ def tons_caught_home(agent_name, caught):
 
 class FishingConcurrentEnv(ConcurrentEnv):
     def __init__(
-        self, cfg: DictConfig, experiment_storage: str, map_id_to_name: dict[str, str]
+        self, cfg: DictConfig, experiment_storage: str, map_id_to_name: dict[str, str], num_agents: str = 5,
     ) -> None:
-        super().__init__(cfg, experiment_storage, map_id_to_name)
+        super().__init__(cfg, experiment_storage, map_id_to_name, num_agents=num_agents)
         self.POOL_LOCATION = "lake"
 
     def _prompt_pool_amount_of_resource(self):
