@@ -9,7 +9,7 @@ llm:
   temperature: 0.0
   top_p: 1.0
   base_url: "https://openrouter.ai/api/v1"  # Replace with your actual vONF endpoint URL.
-  api_key: "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"
+  api_key: ""
   mix_llm : 0
 
 seed: 42
