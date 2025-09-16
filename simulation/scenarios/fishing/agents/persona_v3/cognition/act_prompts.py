@@ -1,8 +1,8 @@
 from datetime import datetime
 
+from pathfinder import assistant, system, user
 from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
-from pathfinder import assistant, system, user
 
 from .utils import (
     consider_identity_persona_prompt,
@@ -25,35 +25,100 @@ def prompt_action_choose_amount_of_fish_to_catch(
     context: str,
     interval: list[int],
     consider_identity_persona: bool = True,
+    leader_agenda: str = "",
 ):
-    lm = model.start_chain(identity.name, "fishing_cognition_act", "choose_act_options")
+  lm = model.start_chain(
+      identity.name, "fishing_cognition_act", "choose_act_options"
+  )
 
-    with user():
-        lm += f"{get_sytem_prompt(identity)}\n"
-        lm += location_time_info(current_location, current_time)
-        lm += memory_prompt(identity, memories)
-        lm += f"\n"
-        lm += f"Task: With a fishing range set between {interval[0]}-{interval[-1]}, how many tons of fish would you catch this month? "
-        lm += reasoning_steps_prompt()
-        lm += ' Put the final answer after "Answer:", example Answer: N tons.'
+  with user():
+    lm += f"{get_sytem_prompt(identity)}\n"
+    lm += location_time_info(current_location, current_time)
+    lm += (
+        "\nThe current policy following the mayor's agenda isthe following:"
+        " {leader_agenda}\n"
+    )
+    lm += memory_prompt(identity, memories)
+    lm += f"\n"
+    lm += (
+        f"Task: With a fishing range set between {interval[0]}-{interval[-1]},"
+        " how many tons of fish would you catch this month? "
+    )
+    lm += reasoning_steps_prompt()
+    lm += ' Put the final answer after "Answer:", example Answer: N tons.'
 
-    with assistant():
-        lm = model.gen(
-            lm,
-            "reasoning",
-            stop_regex=r"Answer:|So, the answer is:|\*\*Answer\*\*:",
-            save_stop_text=True,
-        )
-        lm = model.find(
-            lm,
-            regex=r"\d+",
-            default_value="0",
-            stop_regex=f"tons",
-            name="option",
-        )
-        option = int(lm["option"])
-        reasoning = lm["reasoning"]
+  with assistant():
+    lm = model.gen(
+        lm,
+        "reasoning",
+        stop_regex=r"Answer:|So, the answer is:|\*\*Answer\*\*:",
+        save_stop_text=True,
+    )
+    lm = model.find(
+        lm,
+        regex=r"\d+",
+        default_value="0",
+        stop_regex=f"tons",
+        name="option",
+    )
+    option = int(lm["option"])
+    reasoning = lm["reasoning"]
 
-    model.end_chain(identity.name, lm)
+  model.end_chain(identity.name, lm)
 
-    return option, lm.html()
+  return option, lm.html()
+
+
+def prompt_election_vote(
+    model: ModelWandbWrapper,
+    identity: PersonaIdentity,
+    memories: list[str],
+    current_location: str,
+    current_time: str,
+    candidates: list[str],
+    issues: dict[str, str],
+) -> tuple[str, str]:
+  """Vote decision prompt."""
+  del current_location, current_time
+  lm = model.start_chain(identity.name, "fishing_election", "vote_decision")
+
+  with user():
+    lm += f"{get_sytem_prompt(identity)}\n"
+    lm += memory_prompt(identity, memories)
+    lm += (
+        "Task: Select a mayor for the fisheries union among a list of"
+        " candidates and provide your rationale for your selection."
+    )
+    lm += f"\nCandidate positions:\n"
+    for candidate, position in issues.items():
+      lm += f"- {candidate}: {position}\n"
+    lm += (
+        "\nTask: Based on fishing policies and agendas, who would you vote for?"
+        f" {', '.join(candidates)}?"
+    )
+    lm += reasoning_steps_prompt()
+    lm += ' Put the final answer after "Vote:", example "Vote: John"'
+    # print(f'\nVOTE PROMPT: {lm._format_prompt()[0]}')
+
+  with assistant():
+    lm = model.gen(
+        lm,
+        "reasoning",
+        stop_regex=r"Vote:|\*\*Vote\*\*:",
+        save_stop_text=True,
+    )
+    lm = model.find(
+        lm,
+        regex=r"|".join(candidates),
+        # default_value="0",
+        # stop_regex=f"tons",
+        name="option",
+    )
+    # option = int(lm["option"])
+    # print(f'\nVOTE: {lm["reasoning"]}\n{lm["option"]}')
+    reasoning = lm["reasoning"]
+    vote = lm["option"].strip()
+
+  model.end_chain(identity.name, lm)
+  return vote, lm.html()
+

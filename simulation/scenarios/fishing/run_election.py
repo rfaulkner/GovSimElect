@@ -74,10 +74,21 @@ def perform_election(
   for persona_id in personas:
     # Only non-leader personas cast votes
     if persona_id not in leader_candidates:
-      # TODO(rfaulk): get memories.
+      # # TODO(rfaulk): get memories.
+      # focal_points = [current_context]
+      # if len(current_conversation) > 0:
+      #     # Last 4 utterances
+      #     for _, utterance in current_conversation[-4:]:
+      #         focal_points.append(utterance)
+      # focal_points = personas[persona_id].retrieve.retrieve(
+      #     focal_points, top_k=5
+      # )
+      current_location = "lake"  # or fishing_village?
+      retireved_memory = personas[persona_id].retrieve.retrieve(
+          [current_location], 10)
       vote, _ = personas[persona_id].act.participate_in_election(
-          [],  # retrieved memories; adjust as needed
-          "fishing_village",  # default location
+          retireved_memory,  # retrieved memories; adjust as needed
+          current_location,  # default location
           current_time,  # current time as string
           [leader.identity.name for _, leader in leader_candidates.items()],
           leader_agendas,
@@ -270,12 +281,15 @@ def run(
       "election_leader_agendas": leader_agendas,
       "election_votes": votes,
   })
+  agenda = leader_agendas[winner]
 
   # Main simulation loop
   while True:
     agent = personas[agent_id]
+    # Set the current agenda.
+    agent.update_agenda(agenda)
     action = agent.loop(obs)
-    agent_id, obs, rewards, termination = env.step(action)
+    agent_id, obs, _, termination = env.step(action)
 
     stats = {}
     if hasattr(action, "stats"):
@@ -290,6 +304,10 @@ def run(
           stats[s] = action.stats[s]
     logger.log_game({"num_resource": obs.current_resource_num, **stats})
 
+    if np.any(list(termination.values())):
+      logger.log_game({"num_resource": obs.current_resource_num}, last_log=True)
+      break
+
     # Trigger another election?
     if curr_round != env.num_round:
       curr_round = env.num_round
@@ -302,17 +320,16 @@ def run(
           wrapper,
           agent_id_to_name,
       )
+      agenda = leader_agendas[winner]
       election_results[curr_round] = (winner, leader_agendas, votes)
       print(f"\nRound {curr_round} Election Winner: {winner}")
-      log_to_file(f"election_{curr_round}", election_results[curr_round])
+      log_to_file("election", election_results[curr_round])
       logger.log_game({
+          "round": curr_round,
           "election_winner": winner,
           "election_leader_agendas": leader_agendas,
           "election_votes": votes,
       })
-    if np.any(list(termination.values())):
-      logger.log_game({"num_resource": obs.current_resource_num}, last_log=True)
-      break
 
   env.save_log()
   for persona in personas:
