@@ -48,11 +48,14 @@ def prompt_converse_utterance_in_group(
         lm += "\nConversation so far:\n"
         lm += f"{conversation_to_string_with_dash(current_conversation)}\n\n"
         # Define the task for the language model
-        lm += (
-            f"Task: What would you say next in the group chat? "
-            "Ensure the conversation flows naturally and avoids repetition. "
-            "Determine if your response concludes the conversation. "
-            "If not, identify the next speaker.\n\n"
+    	lm += (
+            "Task: What would you say next in the group chat? Ensure the"
+            " conversation flows naturally and avoids repetition. Try to highlight"
+            " qualities that are important to the group, and reference any speakers"
+            " that you believe provided sound plans that could be useful to the"
+            " group. Also ensure that you consider the survival of the community by"
+            " Determine if your response concludes the conversation. If not,"
+            " identify the next speaker.\n\n"
         )
         # Define the format for the output
         REPONSE = "Response: "
