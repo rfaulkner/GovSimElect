@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any
 
 from simulation.persona import (
@@ -25,6 +26,14 @@ from .cognition import (
 )
 
 
+class PersonaType(Enum):
+    VOTER = 1
+    CLEAR_REASONING_LEADER = 2
+    VERBOSE_REASONING_LEADER = 3
+    CLEAR_DIRECT_LEADER = 4
+    VERBOSE_DIRECT_LEADER = 5
+
+
 class FishingPersona(PersonaAgent):
   last_collected_resource_num: int
   other_personas: dict[str, "FishingPersona"]
@@ -47,6 +56,7 @@ class FishingPersona(PersonaAgent):
       plan_cls: type[FishingPlanComponent] = FishingPlanComponent,
       act_cls: type[FishingActComponent] = FishingActComponent,
       converse_cls: type[FishingConverseComponent] = FishingConverseComponent,
+      persona_type: PersonaType = PersonaType.VOTER,
   ) -> None:
     super().__init__(
         cfg,
@@ -65,9 +75,14 @@ class FishingPersona(PersonaAgent):
     )
     # Initial agenda is empty.
     self._agenda = ""
+    self._persona_type = persona_type
 
   def update_agenda(self, agenda: str) -> None:
     self._agenda = agenda
+
+  @property
+  def persona_type(self) -> PersonaType:
+    return self._persona_type
 
   def loop(self, obs: HarvestingObs) -> PersonaAction:
     res = []

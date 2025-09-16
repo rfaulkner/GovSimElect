@@ -13,11 +13,7 @@ from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
 
 # from .agents.persona_leader import LeaderPersona
-from .agents.persona_leader_clear import LeaderPersonaClear
-from .agents.persona_leader_clear_noreasoning import LeaderPersonaClearNoReasoning
-from .agents.persona_leader_gobbled import LeaderPersonaGobbled
-from .agents.persona_leader_gobbled_reasoning import LeaderPersonaGobbledReasoning
-from .agents.persona_v3 import FishingPersona
+from .agents.persona_v3 import FishingPersona, PersonaType
 from .agents.persona_v3.cognition import utils as cognition_utils
 from .agents.persona_v3.cognition.leader_agendas import prompt_leader_agenda_clear_direct
 from .agents.persona_v3.cognition.leader_agendas import prompt_leader_agenda_clear_explain
@@ -45,19 +41,27 @@ def perform_election(
   leader_agendas = {}
   # Get updated leader agendas using the leader prompt functions
   for pid in leader_candidates:
-    if isinstance(leader_candidates[pid], LeaderPersonaClear):
+    if (
+        leader_candidates[pid].persona_type
+        == PersonaType.CLEAR_REASONING_LEADER
+    ):
       agenda, _ = prompt_leader_agenda_clear_explain(
           wrapper, leader_candidates[pid]
       )
-    elif isinstance(leader_candidates[pid], LeaderPersonaGobbled):
+    elif (
+        leader_candidates[pid].persona_type == PersonaType.VERBOSE_DIRECT_LEADER
+    ):
       agenda, _ = prompt_leader_agenda_verbose_direct(
           wrapper, leader_candidates[pid]
       )
-    elif isinstance(leader_candidates[pid], LeaderPersonaClearNoReasoning):
+    elif leader_candidates[pid].persona_type == PersonaType.CLEAR_DIRECT_LEADER:
       agenda, _ = prompt_leader_agenda_clear_direct(
           wrapper, leader_candidates[pid]
       )
-    elif isinstance(leader_candidates[pid], LeaderPersonaGobbledReasoning):
+    elif (
+        leader_candidates[pid].persona_type
+        == PersonaType.VERBOSE_REASONING_LEADER
+    ):
       agenda, _ = prompt_leader_agenda_verbose_explain(
           wrapper, leader_candidates[pid]
       )
@@ -74,7 +78,15 @@ def perform_election(
   for persona_id in personas:
     # Only non-leader personas cast votes
     if persona_id not in leader_candidates:
-      # Fetch latest memories.
+      # # TODO(rfaulk): get memories.
+      # focal_points = [current_context]
+      # if len(current_conversation) > 0:
+      #     # Last 4 utterances
+      #     for _, utterance in current_conversation[-4:]:
+      #         focal_points.append(utterance)
+      # focal_points = personas[persona_id].retrieve.retrieve(
+      #     focal_points, top_k=5
+      # )
       current_location = "lake"  # or fishing_village?
       retireved_memory = personas[persona_id].retrieve.retrieve(
           [current_location], 10)
@@ -160,29 +172,33 @@ def run(
 
   # Initialize leader candidates
   leader_candidates = {
-      "persona_0": LeaderPersonaClear(
+      "persona_0": FishingPersona(
           cfg.agent,
           wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_0"),
+          persona_type=PersonaType.CLEAR_REASONING_LEADER,
       ),
-      "persona_1": LeaderPersonaGobbled(
+      "persona_1": FishingPersona(
           cfg.agent,
           wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_1"),
+          persona_type=PersonaType.VERBOSE_DIRECT_LEADER,
       ),
-      "persona_2": LeaderPersonaClearNoReasoning(
+      "persona_2": FishingPersona(
           cfg.agent,
           wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_3"),
+          persona_type=PersonaType.CLEAR_DIRECT_LEADER,
       ),
-      "persona_3": LeaderPersonaGobbledReasoning(
+      "persona_3": FishingPersona(
           cfg.agent,
           wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_4"),
+          persona_type=PersonaType.VERBOSE_REASONING_LEADER,
       ),
   }
 
