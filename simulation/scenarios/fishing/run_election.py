@@ -74,15 +74,7 @@ def perform_election(
   for persona_id in personas:
     # Only non-leader personas cast votes
     if persona_id not in leader_candidates:
-      # # TODO(rfaulk): get memories.
-      # focal_points = [current_context]
-      # if len(current_conversation) > 0:
-      #     # Last 4 utterances
-      #     for _, utterance in current_conversation[-4:]:
-      #         focal_points.append(utterance)
-      # focal_points = personas[persona_id].retrieve.retrieve(
-      #     focal_points, top_k=5
-      # )
+      # Fetch latest memories.
       current_location = "lake"  # or fishing_village?
       retireved_memory = personas[persona_id].retrieve.retrieve(
           [current_location], 10)
