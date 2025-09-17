@@ -1,3 +1,5 @@
+"""Acting prompts and responses for the fishing personas."""
+
 from datetime import datetime
 
 from pathfinder import assistant, system, user
@@ -5,11 +7,7 @@ from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
 
 from .utils import (
-    consider_identity_persona_prompt,
-    conversation_to_string_with_dash,
     get_sytem_prompt,
-    list_to_comma_string,
-    list_to_string_with_dash,
     location_time_info,
     memory_prompt,
     reasoning_steps_prompt,
@@ -26,6 +24,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
     interval: list[int],
     consider_identity_persona: bool = True,
     leader_agenda: str = "",
+    debug: bool = False,
 ):
   lm = model.start_chain(
       identity.name, "fishing_cognition_act", "choose_act_options"
@@ -46,6 +45,8 @@ def prompt_action_choose_amount_of_fish_to_catch(
     )
     lm += reasoning_steps_prompt()
     lm += ' Put the final answer after "Answer:", example Answer: N tons.'
+    if debug:
+      print(f"\n\nCHOOSE AMOUNT PROMPT:\n\n{lm._current_prompt()}\n")
 
   with assistant():
     lm = model.gen(
@@ -63,6 +64,11 @@ def prompt_action_choose_amount_of_fish_to_catch(
     )
     option = int(lm["option"])
     reasoning = lm["reasoning"]
+    if debug:
+      print(
+          f"\n\nCHOOSE AMOUNT RESPONSE:\n\nREASON: {lm['reasoning']}\nCATCH:"
+          f" {option}"
+      )
 
   model.end_chain(identity.name, lm)
 
@@ -77,6 +83,7 @@ def prompt_election_vote(
     current_time: str,
     candidates: list[str],
     issues: dict[str, str],
+    debug: bool = False,
 ) -> tuple[str, str]:
   """Vote decision prompt."""
   del current_location, current_time
@@ -98,7 +105,8 @@ def prompt_election_vote(
     )
     lm += reasoning_steps_prompt()
     lm += ' Put the final answer after "Vote:", example "Vote: John"'
-    # print(f'\nVOTE PROMPT: {lm._format_prompt()[0]}')
+    if debug:
+      print(f"\n\nVOTE PROMPT:\n\n{lm._current_prompt()}\n")
 
   with assistant():
     lm = model.gen(
@@ -114,8 +122,9 @@ def prompt_election_vote(
         # stop_regex=f"tons",
         name="option",
     )
-    # option = int(lm["option"])
-    # print(f'\nVOTE: {lm["reasoning"]}\n{lm["option"]}')
+    if debug:
+      print(f"\n\nVOTE RESPONSE:\n\nREASON: {lm['reasoning']}\nVOTE:"
+            f" {lm['option']}")
     reasoning = lm["reasoning"]
     vote = lm["option"].strip()
 
