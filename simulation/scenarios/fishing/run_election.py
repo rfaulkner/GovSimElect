@@ -78,18 +78,12 @@ def perform_election(
   for persona_id in personas:
     # Only non-leader personas cast votes
     if persona_id not in leader_candidates:
-      # # TODO(rfaulk): get memories.
-      # focal_points = [current_context]
-      # if len(current_conversation) > 0:
-      #     # Last 4 utterances
-      #     for _, utterance in current_conversation[-4:]:
-      #         focal_points.append(utterance)
-      # focal_points = personas[persona_id].retrieve.retrieve(
-      #     focal_points, top_k=5
-      # )
-      current_location = "lake"  # or fishing_village?
-      retireved_memory = personas[persona_id].retrieve.retrieve(
-          [current_location], 10)
+      # Get memories.
+      current_location = "lake"
+      retireved_memory = []
+      if hasattr(personas[persona_id], "current_time"):
+        retireved_memory = personas[persona_id].retrieve.retrieve(
+            [current_location], 10)
       vote, _ = personas[persona_id].act.participate_in_election(
           retireved_memory,  # retrieved memories; adjust as needed
           current_location,  # default location
@@ -124,6 +118,7 @@ def run(
     cfg: DictConfig,
     logger: ModelWandbWrapper,
     wrapper: ModelWandbWrapper,
+    framework_wrapper: ModelWandbWrapper,
     embedding_model: EmbeddingModel,
     experiment_storage: str,
 ):
@@ -175,6 +170,7 @@ def run(
       "persona_0": FishingPersona(
           cfg.agent,
           wrapper,
+          framework_wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_0"),
           persona_type=PersonaType.CLEAR_REASONING_LEADER,
@@ -182,6 +178,7 @@ def run(
       "persona_1": FishingPersona(
           cfg.agent,
           wrapper,
+          framework_wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_1"),
           persona_type=PersonaType.VERBOSE_DIRECT_LEADER,
@@ -189,6 +186,7 @@ def run(
       "persona_2": FishingPersona(
           cfg.agent,
           wrapper,
+          framework_wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_3"),
           persona_type=PersonaType.CLEAR_DIRECT_LEADER,
@@ -196,6 +194,7 @@ def run(
       "persona_3": FishingPersona(
           cfg.agent,
           wrapper,
+          framework_wrapper,
           embedding_model,
           os.path.join(experiment_storage, "persona_4"),
           persona_type=PersonaType.VERBOSE_REASONING_LEADER,
@@ -208,6 +207,7 @@ def run(
     personas[f"persona_{i}"] = FishingPersona(
         cfg.agent,
         wrapper,
+        framework_wrapper,
         embedding_model,
         os.path.join(experiment_storage, f"persona_{i}"),
     )
