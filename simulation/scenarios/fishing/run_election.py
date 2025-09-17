@@ -75,6 +75,7 @@ def perform_election(
           current_location=current_location,
           current_time=current_time,
           init_retrieved_memory=get_memories(leader_candidates[pid]),
+          total_fishers=len(personas),
 
       )
     elif leader_candidates[pid].persona_type == PersonaType.CLEAR_DIRECT_LEADER:
@@ -84,6 +85,7 @@ def perform_election(
           current_location=current_location,
           current_time=current_time,
           init_retrieved_memory=get_memories(leader_candidates[pid]),
+          total_fishers=len(personas),
 
       )
     elif (
@@ -96,6 +98,7 @@ def perform_election(
           current_location=current_location,
           current_time=current_time,
           init_retrieved_memory=get_memories(leader_candidates[pid]),
+          total_fishers=len(personas),
       )
     else:
       raise ValueError(
