@@ -52,6 +52,7 @@ def prompt_leader_agenda(
     current_time: datetime,
     init_retrieved_memory: list[str],
     task_leader_type: str,
+    total_fishers: int,
     debug: bool = False,
 ) -> tuple[str, str]:
   """Generic leader agenda prompt.
@@ -63,6 +64,7 @@ def prompt_leader_agenda(
     current_time: The current time of the persona.
     init_retrieved_memory: The retrieved memory of the persona.
     task_leader_type: The task to be performed by the leader.
+    total_fishers: The total number of fishers in the community.
     debug: Whether to print the prompt and response.
 
   Returns:
@@ -73,6 +75,10 @@ def prompt_leader_agenda(
   with user():
     lm += f"{get_sytem_prompt(init_persona.identity)}\n"
     lm += location_time_info(current_location, current_time)
+    lm += (
+        f"There are {total_fishers} fishers in total using the shared"
+        " resources.\n"
+    )
     lm += memory_prompt(init_persona.identity, init_retrieved_memory)
     lm += task_leader_type + GOAL_STATEMENT
     lm += "Describe your agenda in the following format:\n"
@@ -109,12 +115,14 @@ def prompt_leader_agenda_clear_explain(
     current_location: str,
     current_time: datetime,
     init_retrieved_memory: list[str],
+    total_fishers: int,
     debug: bool = False,
 ) -> tuple[str, str]:
   """Clear and explained agenda prompt."""
   return prompt_leader_agenda(model, init_persona, current_location,
                               current_time, init_retrieved_memory,
-                              CLEAR_REASONING_LEADER_TASK, debug)
+                              CLEAR_REASONING_LEADER_TASK, total_fishers,
+                              debug)
 
 
 def prompt_leader_agenda_clear_direct(
@@ -123,12 +131,14 @@ def prompt_leader_agenda_clear_direct(
     current_location: str,
     current_time: datetime,
     init_retrieved_memory: list[str],
+    total_fishers: int,
     debug: bool = False,
 ) -> tuple[str, str]:
   """Clear and direct agenda prompt."""
   return prompt_leader_agenda(model, init_persona, current_location,
                               current_time, init_retrieved_memory,
-                              CLEAR_DIRECT_LEADER_TASK, debug)
+                              CLEAR_DIRECT_LEADER_TASK, total_fishers,
+                              debug)
 
 
 def prompt_leader_agenda_verbose_direct(
@@ -137,12 +147,14 @@ def prompt_leader_agenda_verbose_direct(
     current_location: str,
     current_time: datetime,
     init_retrieved_memory: list[str],
+    total_fishers: int,
     debug: bool = False,
 ) -> tuple[str, str]:
   """Verbose and direct agenda prompt."""
   return prompt_leader_agenda(model, init_persona, current_location,
                               current_time, init_retrieved_memory,
-                              VERBOSE_DIRECT_LEADER_TASK, debug)
+                              VERBOSE_DIRECT_LEADER_TASK, total_fishers,
+                              debug)
 
 
 def prompt_leader_agenda_verbose_explain(
@@ -151,10 +163,12 @@ def prompt_leader_agenda_verbose_explain(
     current_location: str,
     current_time: datetime,
     init_retrieved_memory: list[str],
+    total_fishers: int,
     debug: bool = False,
 ) -> tuple[str, str]:
   """Verbose and explained agenda prompt."""
   return prompt_leader_agenda(model, init_persona, current_location,
                               current_time, init_retrieved_memory,
-                              VERBOSE_REASONING_LEADER_TASK, debug)
+                              VERBOSE_REASONING_LEADER_TASK, total_fishers,
+                              debug)
 
