@@ -66,7 +66,8 @@ def main(cfg: DictConfig):
 
   hydra_log_path = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
   shutil.copytree(f"{hydra_log_path}/.hydra/", f"{experiment_storage}/.hydra/")
-  shutil.copy(f"{hydra_log_path}/main.log", f"{experiment_storage}/main.log")
+  shutil.copy(f"{hydra_log_path}/main_elect.log", 
+              f"{experiment_storage}/main_elect.log")
   # shutil.rmtree(hydra_log_path)
 
   artifact = wandb.Artifact("hydra", type="log")
