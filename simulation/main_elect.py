@@ -57,6 +57,7 @@ def main(cfg: DictConfig):
         cfg.experiment,
         logger,
         wrapper,
+        wrapper,
         embedding_model,
         experiment_storage,
     )
