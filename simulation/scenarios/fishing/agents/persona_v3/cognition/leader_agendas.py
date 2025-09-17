@@ -30,11 +30,11 @@ def prompt_leader_agenda_clear_explain(
     lm = model.gen(
         lm,
         "agenda",
-        stop_regex=r"\n",
+        # stop_regex=r"\n",
         save_stop_text=True,
     )
     agenda = lm["agenda"].strip()
-    if agenda[0] == '"' and agenda[-1] == '"':
+    if len(agenda) and agenda[0] == '"' and agenda[-1] == '"':
       agenda = agenda[1:-1]
 
   model.end_chain(init_persona.agent_id, lm)
@@ -59,11 +59,11 @@ def prompt_leader_agenda_clear_direct(
     lm = model.gen(
         lm,
         "agenda",
-        stop_regex=r"\n",
+        # stop_regex=r"\n",
         save_stop_text=True,
     )
     agenda = lm["agenda"].strip()
-    if agenda[0] == '"' and agenda[-1] == '"':
+    if len(agenda) and agenda[0] == '"' and agenda[-1] == '"':
       agenda = agenda[1:-1]
 
   model.end_chain(init_persona.agent_id, lm)
@@ -88,11 +88,11 @@ def prompt_leader_agenda_verbose_direct(
     lm = model.gen(
         lm,
         "agenda",
-        stop_regex=r"\n",
+        # stop_regex=r"\n",
         save_stop_text=True,
     )
     agenda = lm["agenda"].strip()
-    if agenda[0] == '"' and agenda[-1] == '"':
+    if len(agenda) and agenda[0] == '"' and agenda[-1] == '"':
       agenda = agenda[1:-1]
 
   model.end_chain(init_persona.agent_id, lm)
@@ -117,11 +117,11 @@ def prompt_leader_agenda_verbose_explain(
     lm = model.gen(
         lm,
         "agenda",
-        stop_regex=r"\n",
+        # stop_regex=r"\n",
         save_stop_text=True,
     )
     agenda = lm["agenda"].strip()
-    if agenda[0] == '"' and agenda[-1] == '"':
+    if len(agenda) and agenda[0] == '"' and agenda[-1] == '"':
       agenda = agenda[1:-1]
 
   model.end_chain(init_persona.agent_id, lm)
