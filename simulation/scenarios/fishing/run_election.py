@@ -30,12 +30,25 @@ NUM_VOTERS = 8
 TOTAL_NUM_PERSONAS = NUM_LEADERS + NUM_VOTERS
 
 
+def get_memories(
+    persona: PersonaAgent, current_location: str = "lake") -> list[str]:
+  """Get memories for a persona."""
+  retireved_memory = []
+  try:
+    retireved_memory = persona.retrieve.retrieve(
+        [current_location], 10)
+  except Exception as e:
+    print(f"Couldn't retrieved memories for {persona.identity.name}: {e}")
+  return retireved_memory
+
+
 def perform_election(
     personas: dict[str, PersonaAgent],
     leader_candidates: dict[str, PersonaAgent],
-    current_time: str,
+    current_time: datetime,
     wrapper: ModelWandbWrapper,
     agent_id_to_name: dict[int, str],
+    current_location: str = "lake",
 ):
   """Runs an election among the leaders."""
   leader_agendas = {}
@@ -46,24 +59,42 @@ def perform_election(
         == PersonaType.CLEAR_REASONING_LEADER
     ):
       agenda, _ = prompt_leader_agenda_clear_explain(
-          wrapper, leader_candidates[pid]
+          model=wrapper,
+          init_persona=leader_candidates[pid],
+          current_location=current_location,
+          current_time=current_time,
+          init_retrieved_memory=get_memories(leader_candidates[pid]),
       )
     elif (
         leader_candidates[pid].persona_type == PersonaType.VERBOSE_DIRECT_LEADER
     ):
       agenda, _ = prompt_leader_agenda_verbose_direct(
-          wrapper, leader_candidates[pid]
+          model=wrapper,
+          init_persona=leader_candidates[pid],
+          current_location=current_location,
+          current_time=current_time,
+          init_retrieved_memory=get_memories(leader_candidates[pid]),
+
       )
     elif leader_candidates[pid].persona_type == PersonaType.CLEAR_DIRECT_LEADER:
       agenda, _ = prompt_leader_agenda_clear_direct(
-          wrapper, leader_candidates[pid]
+          model=wrapper,
+          init_persona=leader_candidates[pid],
+          current_location=current_location,
+          current_time=current_time,
+          init_retrieved_memory=get_memories(leader_candidates[pid]),
+
       )
     elif (
         leader_candidates[pid].persona_type
         == PersonaType.VERBOSE_REASONING_LEADER
     ):
       agenda, _ = prompt_leader_agenda_verbose_explain(
-          wrapper, leader_candidates[pid]
+          model=wrapper,
+          init_persona=leader_candidates[pid],
+          current_location=current_location,
+          current_time=current_time,
+          init_retrieved_memory=get_memories(leader_candidates[pid]),
       )
     else:
       raise ValueError(
@@ -80,14 +111,11 @@ def perform_election(
     if persona_id not in leader_candidates:
       # Get memories.
       current_location = "lake"
-      retireved_memory = []
-      if hasattr(personas[persona_id], "current_time"):
-        retireved_memory = personas[persona_id].retrieve.retrieve(
-            [current_location], 10)
+      retireved_memory = get_memories(personas[persona_id], current_location)
       vote, _ = personas[persona_id].act.participate_in_election(
           retireved_memory,  # retrieved memories; adjust as needed
           current_location,  # default location
-          current_time,  # current time as string
+          current_time.strftime("%H-%M-%S"),  # current time as string
           [leader.identity.name for _, leader in leader_candidates.items()],
           leader_agendas,
       )
@@ -255,7 +283,7 @@ def run(
   agent_name_to_id = {obj.name: k for k, obj in identities.items()}
   agent_name_to_id["framework"] = "framework"
   agent_id_to_name = {v: k for k, v in agent_name_to_id.items()}
-  print(f"Agent ID to Name:\n\n{agent_id_to_name}")
+  # print(f"Agent ID to Name:\n\n{agent_id_to_name}")
 
   # Initialize each persona and add references
   for persona in personas:
@@ -280,10 +308,9 @@ def run(
   curr_round = env.num_round
 
   # Run the first election
-  last_election_time = datetime.datetime.now()
-  current_time_str = last_election_time.strftime("%H-%M-%S")
+  current_time = datetime.datetime.now()
   winner, votes, leader_agendas = perform_election(
-      personas, leader_candidates, current_time_str, wrapper, agent_id_to_name
+      personas, leader_candidates, current_time, wrapper, agent_id_to_name
   )
   election_results[0] = (winner, leader_agendas, votes)
   print(f"\nRound {curr_round} Election Winner: {winner}")
@@ -324,11 +351,10 @@ def run(
     if curr_round != env.num_round:
       curr_round = env.num_round
       current_time = datetime.datetime.now()
-      current_time_str = current_time.strftime("%H-%M-%S")
       winner, votes, leader_agendas = perform_election(
           personas,
           leader_candidates,
-          current_time_str,
+          current_time,
           wrapper,
           agent_id_to_name,
       )
