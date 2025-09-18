@@ -24,4 +24,4 @@ module load python/3.11.5 cuda/12.2 gcc arrow/21.0.0
 cd $project_dir
 source .venv/bin/activate
 
-python3 -m simulation.main_elect experiment=$experiment llm.path=$model_id
+python3 -m simulation.main_elect experiment=$experiment llm.path=$model_id llm.is_api=false

@@ -29,13 +29,12 @@ def prompt_action_choose_amount_of_fish_to_catch(
   lm = model.start_chain(
       identity.name, "fishing_cognition_act", "choose_act_options"
   )
-
   with user():
     lm += f"{get_sytem_prompt(identity)}\n"
     lm += location_time_info(current_location, current_time)
     lm += (
         "\nThe current policy following the mayor's agenda isthe following:"
-        " {leader_agenda}\n"
+        f" {leader_agenda}\n"
     )
     lm += memory_prompt(identity, memories)
     lm += f"\n"
@@ -88,7 +87,6 @@ def prompt_election_vote(
   """Vote decision prompt."""
   del current_location, current_time
   lm = model.start_chain(identity.name, "fishing_election", "vote_decision")
-
   with user():
     lm += f"{get_sytem_prompt(identity)}\n"
     lm += memory_prompt(identity, memories)
@@ -98,10 +96,10 @@ def prompt_election_vote(
     )
     lm += f"\nCandidate positions:\n"
     for candidate, position in issues.items():
-      lm += f"- {candidate}: {position}\n"
+      lm += f"\n- {candidate}: {position}\n"
     lm += (
         "\nTask: Based on fishing policies and agendas, who would you vote for?"
-        f" {', '.join(candidates)}?"
+        f" Select from the candidates: {', '.join(candidates)}. "
     )
     lm += reasoning_steps_prompt()
     lm += ' Put the final answer after "Vote:", example "Vote: John"'
@@ -117,9 +115,8 @@ def prompt_election_vote(
     )
     lm = model.find(
         lm,
-        regex=r"|".join(candidates),
-        # default_value="0",
-        # stop_regex=f"tons",
+        regex=rf"{'|'.join(candidates)}",
+        default_value="none",
         name="option",
     )
     if debug:

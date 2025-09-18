@@ -23,7 +23,7 @@ from .persona import EmbeddingModel
 from simulation.scenarios.fishing.run_election import run as run_scenario_fishing
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config_api")
+@hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
   print(OmegaConf.to_yaml(cfg))
   set_seed(cfg.seed)

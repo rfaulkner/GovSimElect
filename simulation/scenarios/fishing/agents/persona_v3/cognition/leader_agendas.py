@@ -87,20 +87,20 @@ def prompt_leader_agenda(
     lm += "3. Your enforcement approach.\n"
     lm += reasoning_steps_prompt()
     lm += (
-        'Output format:\nMy agenda as mayor: [fill in your agenda here] END\n"'
+        'Output format:\nMy agenda as mayor: [fill in your agenda here] END-AGENDA"'
     )
     if debug:
-      print(f"\n\nCURRENT PROMPT:\n\n{lm._current_prompt()}\n")
+      print(f"\n\nAGENDA PROMPT:\n\n{lm._current_prompt()}\n")
 
   with assistant():
     lm = model.gen(
         lm,
         "agenda",
-        stop_regex=r"END\n",
-        save_stop_text=False,
+        stop_regex=r"END-AGENDA",
+        save_stop_text=True,
     )
     if debug:
-      print(f"\n\nRESPONSE:\n\n{lm['agenda']}\n")
+      print(f"\n\nAGENDA RESPONSE:\n\n{lm['agenda']}\n")
     agenda = lm["agenda"].strip()
     if len(agenda) and agenda[0] == '"' and agenda[-1] == '"':
       agenda = agenda[1:-1]
