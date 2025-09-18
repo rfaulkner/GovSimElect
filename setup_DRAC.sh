@@ -6,8 +6,8 @@ echo "🚀 Starting setup process..."
  
 # Create and activate virtual environment 
 echo "🌍 Creating Python virtual environment..." 
-module load python/3.11.5 cuda/12.2 gcc arrow rust 
-virtualenv --no-download .venv --prompt GovSim 
+module load python/3.11.5 cuda/12.2 gcc arrow/21.0.0 rust 
+virtualenv --no-download .venv --prompt GovSimElect 
 echo "  → Activating virtual environment..." 
 source .venv/bin/activate 
 echo "✅ Virtual environment created and activated" 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --account=def-rgrosse
+#SBATCH --account=aip-rgrosse
 #SBATCH --job-name=govsim_elect
 #SBATCH --output=slurm/output/%j_%x.out
 
@@ -15,12 +15,12 @@ model_id="openrouter-google/gemma-3-12b-it:free"
 
 experiment="fish_baseline_concurrent_leaders"
 
-project_dir="/home/$USER/projects/def-rgrosse/$USER/GovSimElect"
+project_dir="/home/$USER/projects/aip-rgrosse/$USER/GovSimElect"
 
 export WANDB_DISABLED=true # Optional, depending on if you want to use WandB
 export HF_HOME="/scratch/$USER/hf_cache"
 
-module load python/3.11.5 cuda/12.2 gcc arrow
+module load python/3.11.5 cuda/12.2 gcc arrow/21.0.0
 
 cd $project_dir
 source .venv/bin/activate

@@ -1,3 +1,5 @@
+"""Main file for GovSim Election simulation."""
+
 import os
 from pathlib import Path
 import shutil
@@ -9,10 +11,7 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
 
 import hydra
-import numpy as np
 import wandb
-from hydra import compose, initialize
-from hydra.core.global_hydra import GlobalHydra
 from omegaconf import DictConfig, OmegaConf
 from transformers import set_seed
 
@@ -21,12 +20,10 @@ from pathfinder import get_model
 
 from .persona import EmbeddingModel
 # Updated import: run fishing scenario from multi-turn election version.
-from simulation.scenarios.fishing.run_with_election_multi_turn import run as run_scenario_fishing
-from .scenarios.pollution.run import run as run_scenario_pollution
-from .scenarios.sheep.run import run as run_scenario_sheep
+from simulation.scenarios.fishing.run_election import run as run_scenario_fishing
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+@hydra.main(version_base=None, config_path="conf", config_name="config_api")
 def main(cfg: DictConfig):
   print(OmegaConf.to_yaml(cfg))
   set_seed(cfg.seed)
@@ -66,7 +63,7 @@ def main(cfg: DictConfig):
 
   hydra_log_path = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
   shutil.copytree(f"{hydra_log_path}/.hydra/", f"{experiment_storage}/.hydra/")
-  shutil.copy(f"{hydra_log_path}/main_elect.log", 
+  shutil.copy(f"{hydra_log_path}/main_elect.log",
               f"{experiment_storage}/main_elect.log")
   # shutil.rmtree(hydra_log_path)
 
