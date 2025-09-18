@@ -86,7 +86,6 @@ def perform_election(
           current_time=current_time,
           init_retrieved_memory=get_memories(leader_candidates[pid]),
           total_fishers=len(personas),
-
       )
     elif (
         leader_candidates[pid].persona_type
@@ -143,6 +142,8 @@ def perform_election(
     # Convert leader id to human-readable name using mapping
     print(f"\n{agent_id_to_name.get(pid, pid)}'s Agenda:")
     print(agenda)
+  # In case the voters decide not to vote.
+  leader_agendas['none'] = "No leader agenda, use your best judgement."
   return winner, votes, leader_agendas
 
 
@@ -155,9 +156,6 @@ def run(
     experiment_storage: str,
 ):
   """Run the simulatiuon."""
-  # Override experiment_storage to a new folder "multiturn_results" and create
-  # it if it doesn't exist
-  experiment_storage = "multiturn_results"
   if not os.path.exists(experiment_storage):
     os.makedirs(experiment_storage)
 
