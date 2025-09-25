@@ -4,14 +4,16 @@
 #SBATCH --job-name=govsim_elect
 #SBATCH --output=slurm/output/%j_%x.out
 
-#SBATCH --time=0-1:00:00
+#SBATCH --time=0-5:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=20G
+#SBATCH --mem=40G
 
 # model_id="openrouter-google/gemma-3-27b-it:free"
-model_id="openrouter-google/gemma-3-12b-it:free"
+# model_id="openrouter-google/gemma-3-12b-it:free"
+model_id="openrouter-meta-llama/llama-3-8b-instruct"
+# model_id="openrouter-meta-llama/llama-3-70b-instruct"
 
 experiment="fish_baseline_concurrent_leaders"
 
