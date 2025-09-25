@@ -8,6 +8,7 @@ llm:
   render: false
   temperature: 0.0
   top_p: 1.0
+  iter: 0
 
 mix_llm: [] # disable
 

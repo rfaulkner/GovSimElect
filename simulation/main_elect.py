@@ -23,7 +23,7 @@ from .persona import EmbeddingModel
 from simulation.scenarios.fishing.run_election import run as run_scenario_fishing
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+@hydra.main(version_base=None, config_path="conf", config_name="config_api")
 def main(cfg: DictConfig):
   print(OmegaConf.to_yaml(cfg))
   set_seed(cfg.seed)
@@ -32,10 +32,10 @@ def main(cfg: DictConfig):
   logger = WandbLogger(
       cfg.experiment.name, OmegaConf.to_object(cfg), debug=cfg.debug
   )
-
+  run_name = logger.run_name if logger.run_name else f"{cfg.llm.path}_run_{cfg.llm.iter}"
   experiment_storage = os.path.join(
       os.path.dirname(__file__),
-      f"./results/{cfg.experiment.name}/{logger.run_name}",
+      f"./results/{cfg.experiment.name}/{run_name}",
   )
 
   wrapper = ModelWandbWrapper(
@@ -62,6 +62,8 @@ def main(cfg: DictConfig):
     raise ValueError(f"Unknown experiment.scenario: {cfg.experiment.scenario}")
 
   hydra_log_path = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+  if os.path.exists(f"{experiment_storage}/.hydra/"):
+    shutil.rmtree(f"{experiment_storage}/.hydra/")
   shutil.copytree(f"{hydra_log_path}/.hydra/", f"{experiment_storage}/.hydra/")
   shutil.copy(f"{hydra_log_path}/main_elect.log",
               f"{experiment_storage}/main_elect.log")
