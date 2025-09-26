@@ -401,6 +401,8 @@ def run(
           "num_resources": env.internal_global_state["resource_in_pool"],
       })
 
+  log_to_file("harvest", round_harvest_stats)
+  logger.log_game(round_harvest_stats)
   env.save_log()
   for persona in personas:
     personas[persona].memory.save()
