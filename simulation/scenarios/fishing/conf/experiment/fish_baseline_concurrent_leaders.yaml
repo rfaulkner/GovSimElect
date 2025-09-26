@@ -16,7 +16,6 @@ defaults:
   - persona@personas.persona_9: baseline_fisherman
   - persona@personas.persona_10: baseline_fisherman
   - persona@personas.persona_11: baseline_fisherman
-  - persona@personas.persona_12: baseline_fisherman
 
 env:
   name: fish_baseline_concurrent
@@ -26,10 +25,10 @@ env:
   poupulation_change_after_round: double_100_cap
   observation_other_agents_harvesting: true # true, false
   language_nature: unconstrained #none, unconstrained
-  num_agents: 13  # Updated from 5 to 13 (4 leaders + 9 followers)
+  num_agents: 12  # Updated from 5 to 12 (4 leaders + 9 followers)
   harvesting_order: concurrent # random-sequential, concurrent
   assign_resource_strategy: stochastic # proportional, stochastic
-  inject_universalization: false
+  inject_universalization: true
   inject_scenario_dynamic: false
   perturbations: []
     # - perturbation:
@@ -37,7 +36,7 @@ env:
     #     # as some of the env above
     
 personas:
-  num: 13  # Updated from 5 to 13
+  num: 12  # Updated from 5 to 12
   # Leader personas
   persona_0:
     name: Julia
@@ -64,13 +63,11 @@ personas:
     name: Ava
   persona_11:
     name: Ethan
-  persona_12:
-    name: Isabella
 
 # New simulation parameters for scaling
 simulation:
   num_leaders: 4
-  num_followers: 9
+  num_followers: 8
   leader_types: ["clear", "gobbled", "clear_noreasoning", "gobbled_reasoning"]
 
 agent:
@@ -79,7 +76,7 @@ agent:
   cot_prompt: think_step_by_step # think_step_by_step | deep_breath
   name: LLM=${llm.path}-S=${experiment.agent.act.harvest_strategy}-Up=${experiment.agent.act.universalization_prompt}-Id=${experiment.agent.act.consider_identity_persona}-T=${llm.temperature}-${llm.top_p}
   act:
-    universalization_prompt: false # true, false
+    universalization_prompt: true  # true, false
     harvest_strategy: one_step #or: one_step, suistanability_guided, suistanability_idea
     consider_identity_persona: true
   converse:
