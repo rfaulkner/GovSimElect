@@ -1,5 +1,6 @@
 """Runs an election."""
 
+import collections
 import datetime
 import json
 import os
@@ -9,6 +10,7 @@ from omegaconf import DictConfig
 from omegaconf import OmegaConf
 from simulation.persona import EmbeddingModel
 from simulation.persona import PersonaAgent
+from simulation.persona.common import PersonaActionHarvesting
 from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
 
@@ -314,23 +316,40 @@ def run(
   winner, votes, leader_agendas = perform_election(
       personas, leader_candidates, current_time, wrapper, agent_id_to_name
   )
-  election_results[0] = (winner, leader_agendas, votes)
+  election_results[0] = {
+      "round": 0,
+      "winner": winner,
+      "agendas": leader_agendas,
+      "votes": votes,
+      "harvest_stats": None,
+      "num_resources": env.internal_global_state["resource_in_pool"],
+  }
   print(f"\nRound {curr_round} Election Winner: {winner}")
-  log_to_file(f"election_{curr_round}", election_results[0])
+  log_to_file("election", election_results[0])
   logger.log_game({
+      "round": 0,
       "election_winner": winner,
       "election_leader_agendas": leader_agendas,
       "election_votes": votes,
+      "harvest_stats": None,
+      "num_resources": env.internal_global_state["resource_in_pool"],
   })
   agenda = leader_agendas[winner]
 
   # Main simulation loop
+  round_harvest_stats = collections.defaultdict(
+      lambda: collections.defaultdict(int)
+  )
   while True:
     agent = personas[agent_id]
     # Set the current agenda.
     agent.update_agenda(agenda)
     action = agent.loop(obs)
     agent_id, obs, _, termination = env.step(action)
+
+    # Check for harvest actions.
+    if isinstance(action, PersonaActionHarvesting):
+      round_harvest_stats[curr_round][agent.identity.name] = action.quantity
 
     stats = {}
     if hasattr(action, "stats"):
@@ -361,7 +380,15 @@ def run(
           agent_id_to_name,
       )
       agenda = leader_agendas[winner]
-      election_results[curr_round] = (winner, leader_agendas, votes)
+      election_results[curr_round] = {
+          "round": curr_round,
+          "winner": winner,
+          "agendas": leader_agendas,
+          "votes": votes,
+          # Use the harvest stats from the last round.
+          "harvest_stats": round_harvest_stats[curr_round-1],
+          "num_resources": env.internal_global_state["resource_in_pool"],
+      }
       print(f"\nRound {curr_round} Election Winner: {winner}")
       log_to_file("election", election_results[curr_round])
       logger.log_game({
@@ -369,6 +396,9 @@ def run(
           "election_winner": winner,
           "election_leader_agendas": leader_agendas,
           "election_votes": votes,
+          # Use the harvest stats from the last round.
+          "harvest_stats": round_harvest_stats[curr_round-1],
+          "num_resources": env.internal_global_state["resource_in_pool"],
       })
 
   env.save_log()
