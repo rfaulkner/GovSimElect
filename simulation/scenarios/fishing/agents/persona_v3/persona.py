@@ -84,7 +84,7 @@ class FishingPersona(PersonaAgent):
   def persona_type(self) -> PersonaType:
     return self._persona_type
 
-  def loop(self, obs: HarvestingObs) -> PersonaAction:
+  def loop(self, obs: HarvestingObs, debug: bool = False) -> PersonaAction:
     res = []
     self.current_time = obs.current_time  # update current time
 
@@ -93,10 +93,12 @@ class FishingPersona(PersonaAgent):
 
     if obs.current_location == "lake" and obs.phase == "lake":
       # Stage 1. Pond situation / Stage 2. Fishermen’s decisions
-      retireved_memory = self.retrieve.retrieve([obs.current_location], 10)
+      retrieved_memory = self.retrieve.retrieve([obs.current_location], 10)
+      if debug:
+        print(f"MEMORIES: {retrieved_memory}")
       if obs.current_resource_num > 0:
         num_resource, html_interactions = self.act.choose_how_many_fish_to_chat(
-            retireved_memory,
+            retrieved_memory,
             obs.current_location,
             obs.current_time,
             obs.context,
@@ -120,6 +122,8 @@ class FishingPersona(PersonaAgent):
             stats={},
             html_interactions="<strong>Framework<strong/>: no fish to catch",
         )
+      if debug:
+        print(f'HARVEST: {self.identity.name} {num_resource}.')
     elif (
         obs.current_location == "lake" and obs.phase == "pool_after_harvesting"
     ):
@@ -156,11 +160,15 @@ class FishingPersona(PersonaAgent):
           stats={"conversation_resource_limit": resource_limit},
           html_interactions=html_interactions,
       )
+      if debug:
+        print(f'CONVERSE: {self.identity.name}.')
     elif obs.current_location == "home":
       # Stage 3. Social Interaction b)
       # TODO How what should we reflect, what is the initial focal points?
       self.reflect.run(["harvesting"])
       action = PersonaAction(self.agent_id, "home")
+      if debug:
+        print(f'REFLECT: {self.identity.name}.')
 
     self.memory.save()  # periodically save memory
     return action
