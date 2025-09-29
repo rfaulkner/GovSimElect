@@ -1,5 +1,6 @@
 """Handling conversation among the personas."""
 
+from typing import Optional
 from datetime import datetime
 
 from simulation.persona.cognition.converse import ConverseComponent
@@ -32,7 +33,7 @@ class FishingConverseComponent(ConverseComponent):
       current_time: datetime,
       current_context: str,
       agent_resource_num: dict[str, int],
-      mayoral_agenda: str,
+      mayoral_agenda: Optional[str] = None,
   ) -> tuple[list[tuple[str, str]], str]:
     current_conversation: list[tuple[PersonaIdentity, str]] = []
 
@@ -81,7 +82,7 @@ class FishingConverseComponent(ConverseComponent):
               ),
           ),
       )
-      if self.agenda:
+      if mayoral_agenda:
         current_conversation.append(
             (
                 current_mayor,
