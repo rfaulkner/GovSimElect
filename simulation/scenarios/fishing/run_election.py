@@ -4,6 +4,7 @@ import collections
 import datetime
 import json
 import os
+import random
 
 import numpy as np
 from omegaconf import DictConfig
@@ -134,7 +135,11 @@ def perform_election(
       votes[candidate_str] = votes.get(candidate_str, 0) + 1
 
   # Determine winner (as the candidate's human-readable name)
-  winner = max(votes.items(), key=lambda x: x[1])[0]
+  # Randomly break ties.
+  winner = max(votes.values())
+  keys = [key for key, value in votes.items() if value == winner]
+  winner = random.choice(keys)
+
   print("\nElection Voting Results:")
   for candidate, vote_count in votes.items():
     print(f"{candidate}: {vote_count} votes")
@@ -308,7 +313,13 @@ def run(
       experiment_storage,
       agent_id_to_name,
       num_agents=TOTAL_NUM_PERSONAS)
-  agent_id, obs = env.reset()
+  # Initialize the environment.
+  sustainability_threshold = cfg.env.initial_resource_in_pool // (
+      2 * TOTAL_NUM_PERSONAS
+  )
+  agent_id, obs = env.reset(
+      sustainability_threshold=sustainability_threshold
+  )
   curr_round = env.num_round
 
   # Run the first election

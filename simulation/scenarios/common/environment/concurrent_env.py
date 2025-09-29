@@ -15,6 +15,8 @@ from simulation.persona.common import (
 
 from .common import HarvestingObs
 
+DEFAULT_SUSTAINABILITY_THRESHOLD = 10
+
 
 def get_reflection_day(current_date):
   next_month = current_date.replace(day=28) + timedelta(days=4)
@@ -38,7 +40,7 @@ class ConcurrentEnv:
       cfg: DictConfig,
       experiment_storage: str,
       map_id_to_name: dict[str, str],
-      num_agents: int = 5
+      num_agents: int = 5,
   ) -> None:
     self.cfg = cfg
     self.experiment_storage = experiment_storage
@@ -203,7 +205,12 @@ class ConcurrentEnv:
     self.rewards[agent] = 0.0
     self.terminations[agent] = False
 
-  def reset(self, seed=None, options=None) -> tuple[str, HarvestingObs]:
+  def reset(
+      self,
+      seed=None,
+      options=None,
+      sustainability_threshold: int = DEFAULT_SUSTAINABILITY_THRESHOLD,
+  ) -> tuple[str, HarvestingObs]:
     self.random = np.random.RandomState(seed)
 
     self.agents = self.possible_agents[: self.cfg.num_agents]
@@ -221,8 +228,8 @@ class ConcurrentEnv:
         "resource_in_pool": self.cfg.initial_resource_in_pool,
         "resource_before_harvesting": self.cfg.initial_resource_in_pool,
         "sustainability_threshold": (
-            10
-        ),  # each day the fish double and cap at 100, so maximum 50 can be fished
+            sustainability_threshold
+        ),
         "collected_resource": {},
         "wanted_resource": {},
         "last_collected_resource": {},
