@@ -1,3 +1,5 @@
+"""Defines the fishing persona logic and agent loop."""
+
 from enum import Enum
 from typing import Any
 
@@ -32,6 +34,8 @@ class PersonaType(Enum):
     VERBOSE_REASONING_LEADER = 3
     CLEAR_DIRECT_LEADER = 4
     VERBOSE_DIRECT_LEADER = 5
+
+DEFAULT_AGENDA = "No specific guidance."
 
 
 class FishingPersona(PersonaAgent):
@@ -74,7 +78,7 @@ class FishingPersona(PersonaAgent):
         converse_cls,
     )
     # Initial agenda is empty.
-    self._agenda = ""
+    self._agenda = DEFAULT_AGENDA
     self._persona_type = persona_type
 
   def update_agenda(self, agenda: str) -> None:
@@ -123,7 +127,7 @@ class FishingPersona(PersonaAgent):
             html_interactions="<strong>Framework<strong/>: no fish to catch",
         )
       if debug:
-        print(f'HARVEST: {self.identity.name} {num_resource}.')
+        print(f"HARVEST: {self.identity.name} {num_resource}.")
     elif (
         obs.current_location == "lake" and obs.phase == "pool_after_harvesting"
     ):
@@ -151,6 +155,7 @@ class FishingPersona(PersonaAgent):
           obs.current_time,
           obs.context,
           obs.agent_resource_num,
+          mayoral_agenda=self._agenda,
       )
       action = PersonaActionChat(
           self.agent_id,
@@ -161,14 +166,14 @@ class FishingPersona(PersonaAgent):
           html_interactions=html_interactions,
       )
       if debug:
-        print(f'CONVERSE: {self.identity.name}.')
+        print(f"CONVERSE: {self.identity.name}.")
     elif obs.current_location == "home":
       # Stage 3. Social Interaction b)
       # TODO How what should we reflect, what is the initial focal points?
       self.reflect.run(["harvesting"])
       action = PersonaAction(self.agent_id, "home")
       if debug:
-        print(f'REFLECT: {self.identity.name}.')
+        print(f"REFLECT: {self.identity.name}.")
 
     self.memory.save()  # periodically save memory
     return action

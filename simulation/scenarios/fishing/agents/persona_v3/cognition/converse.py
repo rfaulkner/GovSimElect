@@ -32,6 +32,7 @@ class FishingConverseComponent(ConverseComponent):
       current_time: datetime,
       current_context: str,
       agent_resource_num: dict[str, int],
+      mayoral_agenda: str,
   ) -> tuple[list[tuple[str, str]], str]:
     current_conversation: list[tuple[PersonaIdentity, str]] = []
 
@@ -80,8 +81,18 @@ class FishingConverseComponent(ConverseComponent):
               ),
           ),
       )
+      if self.agenda:
+        current_conversation.append(
+            (
+                current_mayor,
+                (
+                    "I'd also like to share my policy agenda to help guide our "
+                    f"collective action: {mayoral_agenda}"
+                ),
+            ),
+        )
 
-    max_conversation_steps = self.cfg.max_conversation_steps  # TODO
+    max_conversation_steps = self.cfg.max_conversation_steps
 
     current_persona = self.persona.identity
 
