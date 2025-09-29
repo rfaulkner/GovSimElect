@@ -402,7 +402,9 @@ def run(
       })
 
   log_to_file("harvest", round_harvest_stats)
-  logger.log_game(round_harvest_stats)
+  log_to_file("sim-end", None)
+  if round_harvest_stats:
+    logger.log_game(round_harvest_stats)
   env.save_log()
   for persona in personas:
     personas[persona].memory.save()
