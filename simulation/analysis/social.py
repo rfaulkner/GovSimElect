@@ -7,18 +7,25 @@ This module implements a number of functions:
   metric_degree_centrality: Computes the degree centrality metric.
 """
 
+import collections
 import json
 import os
 import re
 import sys
 from typing import Any
 
-from collections import defaultdict
 import networkx as nx
-import pandas as pd
+import numpy as np
+# import pandas as pd
 
 
-JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/agent-ballot-box/multiturn_results"
+# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/agent-ballot-box/multiturn_results"
+# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_5"
+JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_1"
+
+# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt"
+# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama"
+
 
 PERSONA_FILE_LIST = [
     "persona_0/nodes.json",
@@ -30,7 +37,7 @@ PERSONA_FILE_LIST = [
 
 ELECTIONS_DATA = "consolidated_results.json"
 ENV_DATA = "log_env.json"
-CHAT_TASK_STR= "Task: What would you say next in the group chat?"
+CHAT_TASK_STR = "Task: What would you say next in the group chat?"
 
 
 def main(argv: list[str]):
@@ -38,29 +45,28 @@ def main(argv: list[str]):
 
   if len(argv) > 1:
     sys.exit("Too many args.")
-  print(f"args: {argv}")
-
-  # Can probably remove.
-  if len(argv) > 1:
-    filename = argv[0]
 
   # Read the elections data and agent names.
-  elections_data, agent_id_to_name = read_elections_data()
-  # print(f"Agent ID to Name:\n\n{agent_id_to_name}")
+  elections_data, agent_id_to_name, harvest_data = read_elections_data()
+  print(f"Agent ID to Name: {agent_id_to_name}\n")
 
   # Extract the agent network and stats.
   agent_network, env_out_dict = read_env_data(agent_id_to_name)
-  # print(agent_network)
-  # graph = nx.from_dict_of_dicts(agent_network)
-  # print(graph)
+  print(f"Agent network: {agent_network}\n")
+  graph = nx.from_dict_of_dicts(agent_network)
+  print(f"Agent network graph: {graph}")
+
+  # Degree centrality.
   degree_centrality = metric_degree_centrality(agent_network)
-  print(f"Degree Centrality:\n{degree_centrality}\n")
+  print(f"Degree centrality: {degree_centrality}\n")
+
+  # Edge centrality.
   betweeness_centrality = metric_betweeness_centrality(agent_network)
-  print(f"Degree Betweeness:\n{betweeness_centrality}\n")
+  print(f"Betweeness centrality: {betweeness_centrality}\n")
+
+  # Importance centrality.
   importance_centrality = metric_importance_centrality(agent_network)
-  print(importance_centrality)
-  # Extract all persona names.
-  # Extract all personas.
+  print(f"Importance centrality: {importance_centrality}\n")
 
   # Read the persona output file.
   # persona_responses = {}
@@ -68,6 +74,17 @@ def main(argv: list[str]):
   #   persona_responses[filename] = get_persona_responses(
   #       filename=PERSONA_FILE_LIST[0], agent_ids=agent_id_to_name)
   # print(f"Persona responses: {persona_responses}")
+
+  # Elections Metrics.
+  winners, total_votes, consecutive_wins = election_metrics(elections_data)
+  print(f"Election winners: {winners}\n")
+  print(f"Election total votes: {total_votes}\n")
+  print(f"Election consecutive wins: {consecutive_wins}\n")
+
+  # Measure Inequality va Gini.
+  gini_cycle_coefficients, agent_map = metric_gini_coefficient(harvest_data)
+  print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
+  print(f"Gini Agent map: {agent_map}\n")
 
 
 def get_persona_responses(
@@ -121,6 +138,8 @@ def read_elections_data() -> tuple[list[dict[str, Any]], dict[str, str]]:
   with open(os.path.join(JSON_BASE_PATH, ELECTIONS_DATA), "r") as file:
     elections_data = [json.loads(line.rstrip()) for line in file]
   # extract agent names
+  elections_dict = {}
+  harvest_data_by_cycle = {}
   agent_id_to_name = {}
   for element in elections_data:
     if element["type"] == "persona_identities":
@@ -129,11 +148,16 @@ def read_elections_data() -> tuple[list[dict[str, Any]], dict[str, str]]:
       # extract election data - type 'election_0'
     elif element["type"] == "election":
       round_id = int(element["data"]["round"])
-      winner_id = element["data"]["election_winner"]
-      agendas = element["data"]["election_leader_agendas"]
-      votes = element["data"]["election_votes"]
-      # TODO: extract voting trends from this data.
-  return elections_data, agent_id_to_name
+      elections_dict[round_id] = {
+          "winner": element["data"]["winner"],
+          # "agendas": element["data"]["agendas"],
+          "votes": element["data"]["votes"],
+          "harvest_stats": element["data"]["harvest_stats"],
+      }
+    elif element["type"] == "harvest":
+      harvest_data_by_cycle = element["data"]
+
+  return elections_dict, agent_id_to_name, harvest_data_by_cycle
 
 
 def get_next_speaker_from_interaction(interaction: str) -> str:
@@ -198,7 +222,7 @@ def read_env_data(agent_id_to_name: dict[str, str]):
      'agent_name', 'resource_limit', 'utterance'])
   """
   # Load sample data from JSON file.
-  env_out_dict = defaultdict(lambda: defaultdict(list))
+  env_out_dict = collections.defaultdict(lambda: collections.defaultdict(list))
 
   # Initialise agent network.
   network_weights = {}
@@ -264,7 +288,7 @@ def metric_degree_centrality(
   This metric quantifies the number of direct connections an agent has, 
   indicating their prominence in communication and potential influence. 
   """
-  degree_centrality = defaultdict(int)
+  degree_centrality = collections.defaultdict(int)
   for agent_from, agent_edges in agent_network.items():
     for agent_to, weight in agent_edges.items():
       # Count all connections regardless of direction.
@@ -290,9 +314,9 @@ def metric_betweeness_centrality(
   their presence on the shortest paths between others, highlighting their role
   in facilitating communication and resource flow.
   """
-  betweeness_centrality = defaultdict(int)
-  G = nx.path_graph(agent_network)
-  path = dict(nx.all_pairs_shortest_path(G))
+  betweeness_centrality = collections.defaultdict(int)
+  graph = nx.path_graph(agent_network)
+  path = dict(nx.all_pairs_shortest_path(graph))
   for agent_from, agent_edges in agent_network.items():
     for agent_to, _ in agent_edges.items():
       if agent_from == agent_to:
@@ -305,9 +329,9 @@ def metric_betweeness_centrality(
 def metric_importance_centrality(agent_network: dict[str, dict[str, int]]):
   """Compute degree centrality from network.
   
-    Args:
+  Args:
     agent_network: the agent network DAG.
-  
+
   Returns:
     A mapping of agent names to their importance centrality.
 
@@ -315,10 +339,102 @@ def metric_importance_centrality(agent_network: dict[str, dict[str, int]]):
   connections, identifying agents that hold significant sway through their
   associations.
   """
-  G = nx.path_graph(agent_network)
-  importance_centrality = nx.eigenvector_centrality(G)
+  graph = nx.path_graph(agent_network)
+  importance_centrality = nx.eigenvector_centrality(graph)
   return importance_centrality
 
+
+def election_metrics(elections_data: dict[int, dict[str, Any]]):
+  """Compute election metrics from elections data."""
+  # TODO(rfaulk): Implement this.
+  winners = collections.defaultdict(int)
+  consecutive_wins = collections.defaultdict(int)
+  total_votes = collections.defaultdict(int)
+  for cycle, data in elections_data.items():
+    winners[data["winner"]] += 1
+    for agent_id, vote_tally in data["votes"].items():
+      total_votes[agent_id] += vote_tally
+    if cycle > 0:
+      if (
+          winners[data["winner"]]
+          == winners[elections_data[cycle - 1]["winner"]]
+      ):
+        consecutive_wins[data["winner"]] += 1
+  return winners, total_votes, consecutive_wins
+
+
+def compute_cummulative_resource(
+    agent_resources: dict[str, list[int]],
+) -> tuple[dict[str, list[int]], dict[int, str]]:
+  """Compute cumulative resource from network.
+
+  Args:
+    agent_resources: the agent resources.
+
+  Returns:
+    A numpy array of cumulative resources for each agent.
+  
+  e.g.
+      {'A': [1, 2, 3], 'B': [4, 5, 6]}
+
+  yields:
+      np.array([[1, 3, 6], [4, 9, 15]])
+  """
+  # TODO(rfaulk): Infer num cycles.
+  # n_rounds = len(next(iter(agent_resources)))
+  n_rounds = 12
+  cumulative_agent_resources = np.ndarray(
+      shape=(len(agent_resources), n_rounds)
+  )
+  idx = 0
+  agent_map = {}
+  for agent_id, resources in agent_resources.items():
+    agent_map[idx] = agent_id
+    cumulative_resources = np.cumsum(resources)
+    cumulative_agent_resources[idx, :] = cumulative_resources
+    idx += 1
+  return cumulative_agent_resources, agent_map
+
+
+def gini(x):
+  # (Warning: This is a concise implementation, but it is O(n**2)
+  # in time and memory, where n = len(x).  *Don't* pass in huge
+  # samples!)
+
+  # Mean absolute difference
+  mad = np.abs(np.subtract.outer(x, x)).mean()
+  # Relative mean absolute difference
+  rmad = mad / np.mean(x)
+  # Gini coefficient
+  g = 0.5 * rmad
+  return g
+
+
+def metric_gini_coefficient(
+    agent_resources: dict[int, dict[str, int]]) -> list[float]:
+  """Compute gini coefficient from network.
+
+  Args:
+    agent_resources: the agent resources.
+
+  Returns:
+    The gini coefficient of the network.
+
+  This assesses the degree of inequality in the network, quantifying the
+  disparity in influence across agents.
+  """
+  agent_resources_list = collections.defaultdict(list)
+  # TODO(rfaulk): Compute the range limit.
+  for cycle in range(12):
+    for agent_name, harvest in agent_resources[str(cycle)].items():
+      agent_resources_list[agent_name].append(harvest)
+  cumulative_agent_resources, agent_map = compute_cummulative_resource(
+      agent_resources_list
+  )
+  gini_cycle_coefficients = []
+  for cycle in range(np.shape(cumulative_agent_resources)[1]):
+    gini_cycle_coefficients.append(gini(cumulative_agent_resources[:, cycle]))
+  return gini_cycle_coefficients, agent_map
 
 if __name__ == "__main__":
   main(sys.argv[1:])
