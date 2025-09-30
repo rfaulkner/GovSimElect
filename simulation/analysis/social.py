@@ -5,6 +5,12 @@ This module implements a number of functions:
   read_persona_out: Reads the persona output file.
   read_env_out: Reads the environment output file.
   metric_degree_centrality: Computes the degree centrality metric.
+  metric_betweeness_centrality: Computes the betweeness centrality metric.
+  metric_importance_centrality: Computes the importance centrality metric.
+  election_metrics: Computes the election metrics.
+  compute_cummulative_resource: Computes cummulative resource for each agent.
+  metric_gini_coefficient: Computes the Gini coefficients across cycles.
+  gini: Computes the Gini coefficient for a population.
 """
 
 import collections
@@ -18,14 +24,15 @@ import networkx as nx
 import numpy as np
 # import pandas as pd
 
+JSON_BASE_PATH = ""
 
-# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/agent-ballot-box/multiturn_results"
-# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_5"
-JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_1"
+MODEL_PATH_LIST_QWEN_110 = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_5",
+]
 
-# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt"
-# JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama"
-
+MODEL_PATH_LIST_GPT_4O = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_0",
+]
 
 PERSONA_FILE_LIST = [
     "persona_0/nodes.json",
@@ -46,45 +53,63 @@ def main(argv: list[str]):
   if len(argv) > 1:
     sys.exit("Too many args.")
 
-  # Read the elections data and agent names.
-  elections_data, agent_id_to_name, harvest_data = read_elections_data()
-  print(f"Agent ID to Name: {agent_id_to_name}\n")
+  global JSON_BASE_PATH
+  for model_path in MODEL_PATH_LIST_GPT_4O:
 
-  # Extract the agent network and stats.
-  agent_network, env_out_dict = read_env_data(agent_id_to_name)
-  print(f"Agent network: {agent_network}\n")
-  graph = nx.from_dict_of_dicts(agent_network)
-  print(f"Agent network graph: {graph}")
+    # TODO(rfaulk): Merge stats over multiple runs.
+    JSON_BASE_PATH = model_path
 
-  # Degree centrality.
-  degree_centrality = metric_degree_centrality(agent_network)
-  print(f"Degree centrality: {degree_centrality}\n")
+    # Read the elections data and agent names.
+    elections_data, agent_id_to_name, harvest_data = read_elections_data()
+    print(f"Agent ID to Name: {agent_id_to_name}\n")
 
-  # Edge centrality.
-  betweeness_centrality = metric_betweeness_centrality(agent_network)
-  print(f"Betweeness centrality: {betweeness_centrality}\n")
+    # Extract the agent network and stats.
+    agent_network, inverse_weight_network, _ = read_env_data(agent_id_to_name)
+    # print(f"Agent Network: {agent_network}\n")
+    # print(f"Inverse Weight Network: {inverse_weight_network}\n")
+    graph = nx.from_dict_of_dicts(agent_network)
+    print(f"Agent network graph: {graph}")
 
-  # Importance centrality.
-  importance_centrality = metric_importance_centrality(agent_network)
-  print(f"Importance centrality: {importance_centrality}\n")
+    # Degree centrality.
+    degree_centrality = metric_degree_centrality(agent_network)
+    print(f"Degree centrality: {degree_centrality}\n")
 
-  # Read the persona output file.
-  # persona_responses = {}
-  # for filename in PERSONA_FILE_LIST:
-  #   persona_responses[filename] = get_persona_responses(
-  #       filename=PERSONA_FILE_LIST[0], agent_ids=agent_id_to_name)
-  # print(f"Persona responses: {persona_responses}")
+    # Edge centrality.
+    betweeness_centrality = metric_betweeness_centrality(inverse_weight_network)
+    print(f"Betweeness centrality: {betweeness_centrality}\n")
 
-  # Elections Metrics.
-  winners, total_votes, consecutive_wins = election_metrics(elections_data)
-  print(f"Election winners: {winners}\n")
-  print(f"Election total votes: {total_votes}\n")
-  print(f"Election consecutive wins: {consecutive_wins}\n")
+    # Importance centrality.
+    importance_centrality = metric_importance_centrality(agent_network)
+    print(f"Importance centrality: {importance_centrality}\n")
 
-  # Measure Inequality va Gini.
-  gini_cycle_coefficients, agent_map = metric_gini_coefficient(harvest_data)
-  print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
-  print(f"Gini Agent map: {agent_map}\n")
+    # Sustainability.
+    survival_time = len(harvest_data)
+    survived = survival_time == 12
+    harvest_by_agent = collections.defaultdict(int)
+    for _, data in harvest_data.items():
+      for agent_name, resources in data.items():
+        harvest_by_agent[agent_name] += int(resources)
+    print(f"Survival time: {survival_time}, survived: {survived}\n")
+    print(f"Harvest by agent: {harvest_by_agent}\n")
+    print(f"Total harvest: {sum(harvest_by_agent.values())}\n")
+
+    # Read the persona output file.
+    # persona_responses = {}
+    # for filename in PERSONA_FILE_LIST:
+    #   persona_responses[filename] = get_persona_responses(
+    #       filename=PERSONA_FILE_LIST[0], agent_ids=agent_id_to_name)
+    # print(f"Persona responses: {persona_responses}")
+
+    # Elections Metrics.
+    winners, total_votes, consecutive_wins = election_metrics(elections_data)
+    print(f"Election winners: {winners}\n")
+    print(f"Election total votes: {total_votes}\n")
+    print(f"Election consecutive wins: {consecutive_wins}\n")
+
+    # Measure Inequality va Gini.
+    gini_cycle_coefficients, agent_map = metric_gini_coefficient(harvest_data)
+    print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
+    print(f"Gini Agent map: {agent_map}\n")
 
 
 def get_persona_responses(
@@ -205,6 +230,22 @@ def get_agent_references(
   return refs
 
 
+def add_reference(
+    network: dict[str, dict[str, dict[str, float]]],
+    from_agent: str,
+    to_agent: str,
+    weight: float = 1.0,
+) -> dict[str, dict[str, dict[str, float]]]:
+  """Adds or updates a reference to the network by a weight."""
+  if from_agent not in network:
+    network[from_agent] = {}
+  if to_agent not in network[from_agent]:
+    network[from_agent][to_agent] = {"weight": weight}
+  else:
+    network[from_agent][to_agent]["weight"] += weight
+  return network
+
+
 def read_env_data(agent_id_to_name: dict[str, str]):
   """Reads the env log and extracts the agent network.
   
@@ -226,10 +267,13 @@ def read_env_data(agent_id_to_name: dict[str, str]):
 
   # Initialise agent network.
   network_weights = {}
-  for name_from in agent_id_to_name.values():
-    network_weights[name_from] = {}
-    for name_to in agent_id_to_name.values():
-      network_weights[name_from][name_to] = {"weight": 0}
+  inverse_weight_network = {}
+  # for name_from in agent_id_to_name.values():
+  # network_weights[name_from] = {}
+  # inverse_network[name_from] = {}
+  # for name_to in agent_id_to_name.values():
+  #   network_weights[name_from][name_to] = {"weight": 0.0}
+  #   inverse_network[name_from][name_to] = {"weight": 78.0}  # num edges
 
   with open(os.path.join(JSON_BASE_PATH, ENV_DATA), "r") as f:
     json_dict = json.load(f)
@@ -256,9 +300,9 @@ def read_env_data(agent_id_to_name: dict[str, str]):
             speaker=agent_name)
         # Add network weight.
         if next_speaker:
-          network_weights[agent_name][next_speaker]["weight"] += 1
+          add_reference(network_weights, agent_name, next_speaker)
         for ref in agent_refs:
-          network_weights[agent_name][ref]["weight"] += 1
+          add_reference(network_weights, agent_name, ref)
     else:
       env_out_dict[agent_name][round].append(interactions)
       next_speaker = get_next_speaker_from_interaction(interactions)
@@ -268,10 +312,20 @@ def read_env_data(agent_id_to_name: dict[str, str]):
           speaker=agent_name)
       # Add network weight.
       if next_speaker:
-        network_weights[agent_name][next_speaker]["weight"] += 1
+        add_reference(network_weights, agent_name, next_speaker)
       for ref in agent_refs:
-        network_weights[agent_name][ref]["weight"] += 1
-  return network_weights, env_out_dict
+        add_reference(network_weights, agent_name, ref)
+
+  # Make an inverse network.
+  for name_from in network_weights:
+    for name_to in network_weights[name_from]:
+      add_reference(
+          inverse_weight_network,
+          name_from,
+          name_to,
+          1.0 / network_weights[name_from][name_to]["weight"],
+      )
+  return network_weights, inverse_weight_network, env_out_dict
 
 
 def metric_degree_centrality(
@@ -293,7 +347,7 @@ def metric_degree_centrality(
     for agent_to, weight in agent_edges.items():
       # Count all connections regardless of direction.
       degree_centrality[agent_from] += weight["weight"]
-      degree_centrality[agent_to] += agent_network[agent_to][agent_from][
+      degree_centrality[agent_to] += agent_network[agent_from][agent_to][
           "weight"
       ]
   return degree_centrality
@@ -315,13 +369,13 @@ def metric_betweeness_centrality(
   in facilitating communication and resource flow.
   """
   betweeness_centrality = collections.defaultdict(int)
-  graph = nx.path_graph(agent_network)
+  graph = nx.from_dict_of_dicts(agent_network)
   path = dict(nx.all_pairs_shortest_path(graph))
-  for agent_from, agent_edges in agent_network.items():
-    for agent_to, _ in agent_edges.items():
-      if agent_from == agent_to:
+  for agent_from, agent_edges in path.items():
+    for agent_to, nodes in agent_edges.items():
+      if agent_from == agent_to or len(nodes) < 3:
         continue
-      for agent_interconnect in path[agent_from][agent_to][1:-2]:
+      for agent_interconnect in nodes[1:-1]:
         betweeness_centrality[agent_interconnect] += 1
   return betweeness_centrality
 
@@ -339,7 +393,7 @@ def metric_importance_centrality(agent_network: dict[str, dict[str, int]]):
   connections, identifying agents that hold significant sway through their
   associations.
   """
-  graph = nx.path_graph(agent_network)
+  graph = nx.from_dict_of_dicts(agent_network)
   importance_centrality = nx.eigenvector_centrality(graph)
   return importance_centrality
 
