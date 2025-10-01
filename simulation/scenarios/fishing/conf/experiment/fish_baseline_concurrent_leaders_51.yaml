@@ -1,0 +1,196 @@
+name: fishing_${code_version}/${group_name}
+scenario: fishing
+
+defaults:
+  # Leader personas (4)
+  - persona@personas.persona_0: leader_fisherman
+  - persona@personas.persona_1: leader_fisherman
+  - persona@personas.persona_2: leader_fisherman
+  - persona@personas.persona_3: leader_fisherman
+  # Follower personas (47)
+  - persona@personas.persona_4: baseline_fisherman
+  - persona@personas.persona_5: baseline_fisherman
+  - persona@personas.persona_6: baseline_fisherman
+  - persona@personas.persona_7: baseline_fisherman
+  - persona@personas.persona_8: baseline_fisherman
+  - persona@personas.persona_9: baseline_fisherman
+  - persona@personas.persona_10: baseline_fisherman
+  - persona@personas.persona_11: baseline_fisherman
+  - persona@personas.persona_12: baseline_fisherman
+  - persona@personas.persona_13: baseline_fisherman
+  - persona@personas.persona_14: baseline_fisherman
+  - persona@personas.persona_15: baseline_fisherman
+  - persona@personas.persona_16: baseline_fisherman
+  - persona@personas.persona_17: baseline_fisherman
+  - persona@personas.persona_18: baseline_fisherman
+  - persona@personas.persona_19: baseline_fisherman
+  - persona@personas.persona_20: baseline_fisherman
+  - persona@personas.persona_21: baseline_fisherman
+  - persona@personas.persona_22: baseline_fisherman
+  - persona@personas.persona_23: baseline_fisherman
+  - persona@personas.persona_24: baseline_fisherman
+  - persona@personas.persona_25: baseline_fisherman
+  - persona@personas.persona_26: baseline_fisherman
+  - persona@personas.persona_27: baseline_fisherman
+  - persona@personas.persona_28: baseline_fisherman
+  - persona@personas.persona_29: baseline_fisherman
+  - persona@personas.persona_30: baseline_fisherman
+  - persona@personas.persona_31: baseline_fisherman
+  - persona@personas.persona_32: baseline_fisherman
+  - persona@personas.persona_33: baseline_fisherman
+  - persona@personas.persona_34: baseline_fisherman
+  - persona@personas.persona_35: baseline_fisherman
+  - persona@personas.persona_36: baseline_fisherman
+  - persona@personas.persona_37: baseline_fisherman
+  - persona@personas.persona_38: baseline_fisherman
+  - persona@personas.persona_39: baseline_fisherman
+  - persona@personas.persona_40: baseline_fisherman
+  - persona@personas.persona_41: baseline_fisherman
+  - persona@personas.persona_42: baseline_fisherman
+  - persona@personas.persona_43: baseline_fisherman
+  - persona@personas.persona_44: baseline_fisherman
+  - persona@personas.persona_45: baseline_fisherman
+  - persona@personas.persona_46: baseline_fisherman
+  - persona@personas.persona_47: baseline_fisherman
+
+env:
+  name: fish_baseline_concurrent
+  class_name: fishing_perturbation_concurrent_env # use to select which code 
+  max_num_rounds: 12 
+  initial_resource_in_pool: 100
+  poupulation_change_after_round: double_100_cap
+  observation_other_agents_harvesting: true # true, false
+  language_nature: unconstrained #none, unconstrained
+  num_agents: 51  # Updated from 5 to 12 (4 leaders + 9 followers)
+  harvesting_order: concurrent # random-sequential, concurrent
+  assign_resource_strategy: stochastic # proportional, stochastic
+  inject_universalization: true
+  inject_scenario_dynamic: false
+  perturbations: [] 
+    # - perturbation:
+    #     round: none # [0-max_num_rounds)
+    #     # as some of the env above
+   
+personas:
+  num: 51 
+  # Leader personas
+  persona_0:
+    name: L1
+  persona_1:
+    name: L2
+  persona_2:
+    name: L3
+  persona_3:
+    name: L4
+  persona_4:
+    name: A1
+  persona_5:
+    name: A2
+  persona_6:
+    name: A3
+  persona_7:
+    name: A4
+  persona_8:
+    name: A5
+  persona_9:
+    name: A6
+  persona_10:
+    name: A7
+  persona_11:
+    name: A8
+  persona_12:
+    name: A9
+  persona_13:
+    name: A10
+  persona_14:
+    name: A11
+  persona_15:
+    name: A12
+  persona_16:
+    name: A13
+  persona_17:
+    name: A14
+  persona_18:
+    name: A15
+  persona_19:
+    name: A16
+  persona_20:
+    name: A17
+  persona_21:
+    name: A18
+  persona_22:
+    name: A19
+  persona_23:
+    name: A20
+  persona_24:
+    name: A21
+  persona_25:
+    name: A22
+  persona_26:
+    name: A23
+  persona_27:
+    name: A24
+  persona_28:
+    name: A25
+  persona_29:
+    name: A26
+  persona_30:
+    name: A27
+  persona_31:
+    name: A28
+  persona_32:
+    name: A29
+  persona_33:
+    name: A30
+  persona_34:
+    name: A31
+  persona_35:
+    name: A32
+  persona_36:
+    name: A33
+  persona_37:
+    name: A34
+  persona_38:
+    name: A35
+  persona_39:
+    name: A36
+  persona_40:
+    name: A37
+  persona_41:
+    name: A38
+  persona_42:
+    name: A39
+  persona_43:
+    name: A40
+  persona_44:
+    name: A41
+  persona_45:
+    name: A42
+  persona_46:
+    name: A43
+  persona_47:
+    name: A44
+
+# New simulation parameters for scaling
+simulation:
+  num_leaders: 4
+  num_followers: 47
+  leader_types: ["clear-reasoned", "verbose-no-reasoning", "clear-no-reasoning", "verbose-reasoned"]=
+
+agent:
+  agent_package: persona_v3
+  system_prompt: v3
+  cot_prompt: think_step_by_step # think_step_by_step | deep_breath
+  name: LLM=${llm.path}-S=${experiment.agent.act.harvest_strategy}-Up=${experiment.agent.act.universalization_prompt}-Id=${experiment.agent.act.consider_identity_persona}-T=${llm.temperature}-${llm.top_p}
+  act:
+    universalization_prompt: true  # true, false
+    harvest_strategy: one_step #or: one_step, suistanability_guided, suistanability_idea
+    consider_identity_persona: true
+  converse:
+    inject_resource_observation: ${experiment.env.observation_other_agents_harvesting}
+    inject_resource_observation_strategy: manager # individual, manager
+    max_conversation_steps: 10
+    prompt_utterance: one_shot # one_shot, cot
+  store:
+    expiration_delta:
+      days: 63

@@ -68,7 +68,7 @@ personas:
 simulation:
   num_leaders: 4
   num_followers: 8
-  leader_types: ["clear", "gobbled", "clear_noreasoning", "gobbled_reasoning"]
+  leader_types: ["clear-reasoned", "verbose-no-reasoning", "clear-no-reasoning", "verbose-reasoned"]
 
 agent:
   agent_package: persona_v3
