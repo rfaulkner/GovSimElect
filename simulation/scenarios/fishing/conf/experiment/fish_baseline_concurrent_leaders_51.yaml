@@ -52,6 +52,9 @@ defaults:
   - persona@personas.persona_45: baseline_fisherman
   - persona@personas.persona_46: baseline_fisherman
   - persona@personas.persona_47: baseline_fisherman
+  - persona@personas.persona_48: baseline_fisherman
+  - persona@personas.persona_49: baseline_fisherman
+  - persona@personas.persona_50: baseline_fisherman
 
 env:
   name: fish_baseline_concurrent
@@ -82,6 +85,7 @@ personas:
     name: L3
   persona_3:
     name: L4
+  # Agent Personas
   persona_4:
     name: A1
   persona_5:
@@ -170,12 +174,18 @@ personas:
     name: A43
   persona_47:
     name: A44
+  persona_48:
+    name: A45
+  persona_49:
+    name: A46
+  persona_50:
+    name: A47
 
 # New simulation parameters for scaling
 simulation:
   num_leaders: 4
   num_followers: 47
-  leader_types: ["clear-reasoned", "verbose-no-reasoning", "clear-no-reasoning", "verbose-reasoned"]=
+  leader_types: ["clear-reasoned", "verbose-no-reasoning", "clear-no-reasoning", "verbose-reasoned"]
 
 agent:
   agent_package: persona_v3
@@ -189,7 +199,7 @@ agent:
   converse:
     inject_resource_observation: ${experiment.env.observation_other_agents_harvesting}
     inject_resource_observation_strategy: manager # individual, manager
-    max_conversation_steps: 10
+    max_conversation_steps: 20
     prompt_utterance: one_shot # one_shot, cot
   store:
     expiration_delta:
