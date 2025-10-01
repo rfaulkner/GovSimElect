@@ -32,6 +32,10 @@ MODEL_PATH_LIST_QWEN_110 = [
 
 MODEL_PATH_LIST_GPT_4O = [
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_4",
 ]
 
 PERSONA_FILE_LIST = [
@@ -53,6 +57,19 @@ def main(argv: list[str]):
   if len(argv) > 1:
     sys.exit("Too many args.")
 
+  totals_map = {
+      "degree_centrality": collections.defaultdict(float),
+      "edge_centrality": collections.defaultdict(float),
+      "importance_centrality": collections.defaultdict(float),
+      "gini_cycle_coefficients": [0.0] * 12,
+      "survival_time": 0.0,
+      "survived": float,
+      "harvest_by_agent": collections.defaultdict(float),
+      "total_harvest": float,
+      "election_winners": collections.defaultdict(float),
+      "election_total_votes": collections.defaultdict(float),
+      "election_consecutive_wins": collections.defaultdict(float),
+  }
   global JSON_BASE_PATH
   for model_path in MODEL_PATH_LIST_GPT_4O:
 
@@ -61,37 +78,50 @@ def main(argv: list[str]):
 
     # Read the elections data and agent names.
     elections_data, agent_id_to_name, harvest_data = read_elections_data()
-    print(f"Agent ID to Name: {agent_id_to_name}\n")
+    # print(f"Agent ID to Name: {agent_id_to_name}\n")
 
     # Extract the agent network and stats.
     agent_network, inverse_weight_network, _ = read_env_data(agent_id_to_name)
     # print(f"Agent Network: {agent_network}\n")
     # print(f"Inverse Weight Network: {inverse_weight_network}\n")
-    graph = nx.from_dict_of_dicts(agent_network)
-    print(f"Agent network graph: {graph}")
+    # graph = nx.from_dict_of_dicts(agent_network)
+    # print(f"Agent network graph: {graph}")
 
     # Degree centrality.
     degree_centrality = metric_degree_centrality(agent_network)
-    print(f"Degree centrality: {degree_centrality}\n")
+    for agent_name, degree in degree_centrality.items():
+      totals_map["degree_centrality"][agent_name] += degree
+    # print(f"Degree centrality: {degree_centrality}\n")
 
     # Edge centrality.
     betweeness_centrality = metric_betweeness_centrality(inverse_weight_network)
-    print(f"Betweeness centrality: {betweeness_centrality}\n")
+    for agent_name, degree in betweeness_centrality.items():
+      totals_map["edge_centrality"][agent_name] += degree
+    # print(f"Betweeness centrality: {betweeness_centrality}\n")
 
     # Importance centrality.
     importance_centrality = metric_importance_centrality(agent_network)
-    print(f"Importance centrality: {importance_centrality}\n")
+    for agent_name, degree in importance_centrality.items():
+      totals_map["importance_centrality"][agent_name] += degree
+    # print(f"Importance centrality: {importance_centrality}\n")
 
     # Sustainability.
     survival_time = len(harvest_data)
     survived = survival_time == 12
     harvest_by_agent = collections.defaultdict(int)
+
     for _, data in harvest_data.items():
       for agent_name, resources in data.items():
         harvest_by_agent[agent_name] += int(resources)
-    print(f"Survival time: {survival_time}, survived: {survived}\n")
-    print(f"Harvest by agent: {harvest_by_agent}\n")
-    print(f"Total harvest: {sum(harvest_by_agent.values())}\n")
+
+    totals_map["survival_time"] += float(survival_time)
+    totals_map["survived"] += float(survived)
+    for agent_name, harvest in harvest_by_agent.items():
+      totals_map["harvest_by_agent"][agent_name] += float(harvest)
+    totals_map["total_harvest"] += float(sum(harvest_by_agent.values()))
+    # print(f"Survival time: {survival_time}, survived: {survived}\n")
+    # print(f"Harvest by agent: {harvest_by_agent}\n")
+    # print(f"Total harvest: {sum(harvest_by_agent.values())}\n")
 
     # Read the persona output file.
     # persona_responses = {}
@@ -102,14 +132,33 @@ def main(argv: list[str]):
 
     # Elections Metrics.
     winners, total_votes, consecutive_wins = election_metrics(elections_data)
-    print(f"Election winners: {winners}\n")
-    print(f"Election total votes: {total_votes}\n")
-    print(f"Election consecutive wins: {consecutive_wins}\n")
+    for agent_name, winner in winners.items():
+      totals_map["election_winners"][agent_name] += float(winner)
+    for agent_name, total in total_votes.items():
+      totals_map["election_total_votes"][agent_name] += float(total)
+    for agent_name, consecutive in consecutive_wins.items():
+      totals_map["election_consecutive_wins"][agent_name] += float(consecutive)
+    # print(f"Election winners: {winners}\n")
+    # print(f"Election total votes: {total_votes}\n")
+    # print(f"Election consecutive wins: {consecutive_wins}\n")
 
     # Measure Inequality va Gini.
     gini_cycle_coefficients, agent_map = metric_gini_coefficient(harvest_data)
-    print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
-    print(f"Gini Agent map: {agent_map}\n")
+    for idx, gini_coeff in enumerate(gini_cycle_coefficients):
+      totals_map["gini_cycle_coefficients"][idx] += gini_coeff
+    # print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
+    # print(f"Gini Agent map: {agent_map}\n")
+
+  for totals_key, totals_value in totals_map.items():
+    if isinstance(totals_value, collections.defaultdict):
+      for key, value in totals_value.items():
+        totals_map[key][value] = value / len(MODEL_PATH_LIST_GPT_4O)
+    elif isinstance(totals_value, list):
+      for idx, value in enumerate(totals_value):
+        totals_map[totals_key][idx] = value / len(MODEL_PATH_LIST_GPT_4O)
+    else:
+      totals_map[totals_key] = totals_value / len(MODEL_PATH_LIST_GPT_4O)
+  print(f"Totals:\n\n{totals_map}\n")
 
 
 def get_persona_responses(
