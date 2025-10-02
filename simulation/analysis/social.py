@@ -24,18 +24,106 @@ import networkx as nx
 import numpy as np
 # import pandas as pd
 
-JSON_BASE_PATH = ""
+MAX_CYCLES = 12
 
-MODEL_PATH_LIST_QWEN_110 = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_5",
+JSON_BASE_PATH = ""
+MODEL_PATH_LIST = []
+
+MODEL_PATH_LIST_MISTRAL_7 = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_4",
 ]
 
-MODEL_PATH_LIST_GPT_4O = [
+
+MODEL_PATH_LIST_GEMMA_27 = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_4",
+]
+
+MODEL_PATH_LIST_GEMINI_2_5_FLASH = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_4",
+]
+
+MODEL_PATH_LIST_LLAMA_8 = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_4",
+]
+
+MODEL_PATH_LIST_LLAMA_70 = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_6",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_7",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_8",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_9",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_10",
+]
+
+MODEL_PATH_LIST_LLAMA_70_VANILLA = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_6",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_7",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_8",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_9",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_10",
+]
+
+MODEL_PATH_LIST_QWEN_72 = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_4",
+]
+
+MODEL_PATH_LIST_QWEN_110 = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_4",
+]
+
+MODEL_PATH_LIST_GPT_4_5_turbo = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_4",
+]
+
+MODEL_PATH_LIST_GPT_3_5_turbo = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_0",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_1",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_2",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_3",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_4",
+]
+
+MODEL_PATH_LIST_GPT_4o = [
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_0",
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_1",
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_2",
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_3",
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_4",
+]
+
+MODEL_PATH_LIST_GPT_4O_50_AGENTS = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_5",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_6",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_7",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_8",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_9",
 ]
 
 PERSONA_FILE_LIST = [
@@ -50,6 +138,8 @@ ELECTIONS_DATA = "consolidated_results.json"
 ENV_DATA = "log_env.json"
 CHAT_TASK_STR = "Task: What would you say next in the group chat?"
 
+DEBUG = False
+
 
 def main(argv: list[str]):
   """Main example function."""
@@ -63,47 +153,59 @@ def main(argv: list[str]):
       "importance_centrality": collections.defaultdict(float),
       "gini_cycle_coefficients": [0.0] * 12,
       "survival_time": 0.0,
-      "survived": float,
+      "survived": 0.0,
       "harvest_by_agent": collections.defaultdict(float),
-      "total_harvest": float,
+      "total_harvest": 0.0,
       "election_winners": collections.defaultdict(float),
       "election_total_votes": collections.defaultdict(float),
       "election_consecutive_wins": collections.defaultdict(float),
   }
   global JSON_BASE_PATH
-  for model_path in MODEL_PATH_LIST_GPT_4O:
+  global MODEL_PATH_LIST
+  MODEL_PATH_LIST = MODEL_PATH_LIST_LLAMA_8
 
-    # TODO(rfaulk): Merge stats over multiple runs.
+  for model_path in MODEL_PATH_LIST:
+
+    print(f"Processing {model_path}...")
     JSON_BASE_PATH = model_path
 
     # Read the elections data and agent names.
     elections_data, agent_id_to_name, harvest_data = read_elections_data()
-    # print(f"Agent ID to Name: {agent_id_to_name}\n")
-
+    print(f"Agent ID to Name: {agent_id_to_name}\n")
+    
     # Extract the agent network and stats.
     agent_network, inverse_weight_network, _ = read_env_data(agent_id_to_name)
-    # print(f"Agent Network: {agent_network}\n")
-    # print(f"Inverse Weight Network: {inverse_weight_network}\n")
-    # graph = nx.from_dict_of_dicts(agent_network)
-    # print(f"Agent network graph: {graph}")
+    if DEBUG:
+      print(f"Agent Network: {agent_network}\n")
+      print(f"Inverse Weight Network: {inverse_weight_network}\n")
+      graph = nx.from_dict_of_dicts(agent_network)
+      print(f"Agent network graph: {graph}")
 
     # Degree centrality.
     degree_centrality = metric_degree_centrality(agent_network)
     for agent_name, degree in degree_centrality.items():
       totals_map["degree_centrality"][agent_name] += degree
-    # print(f"Degree centrality: {degree_centrality}\n")
+    if DEBUG:
+      print(f"Degree centrality: {degree_centrality}\n")
 
     # Edge centrality.
     betweeness_centrality = metric_betweeness_centrality(inverse_weight_network)
     for agent_name, degree in betweeness_centrality.items():
       totals_map["edge_centrality"][agent_name] += degree
-    # print(f"Betweeness centrality: {betweeness_centrality}\n")
+    if DEBUG:
+      print(f"Betweeness centrality: {betweeness_centrality}\n")
 
     # Importance centrality.
-    importance_centrality = metric_importance_centrality(agent_network)
-    for agent_name, degree in importance_centrality.items():
-      totals_map["importance_centrality"][agent_name] += degree
-    # print(f"Importance centrality: {importance_centrality}\n")
+    importance_centrality = {}
+    try:
+      importance_centrality = metric_importance_centrality(agent_network)
+      for agent_name, degree in importance_centrality.items():
+        totals_map["importance_centrality"][agent_name] += degree
+    except Exception as e:
+      print(f"Failed to compute importance centrality: {e}")
+      pass
+    if DEBUG:
+      print(f"Importance centrality: {importance_centrality}\n")
 
     # Sustainability.
     survival_time = len(harvest_data)
@@ -119,16 +221,6 @@ def main(argv: list[str]):
     for agent_name, harvest in harvest_by_agent.items():
       totals_map["harvest_by_agent"][agent_name] += float(harvest)
     totals_map["total_harvest"] += float(sum(harvest_by_agent.values()))
-    # print(f"Survival time: {survival_time}, survived: {survived}\n")
-    # print(f"Harvest by agent: {harvest_by_agent}\n")
-    # print(f"Total harvest: {sum(harvest_by_agent.values())}\n")
-
-    # Read the persona output file.
-    # persona_responses = {}
-    # for filename in PERSONA_FILE_LIST:
-    #   persona_responses[filename] = get_persona_responses(
-    #       filename=PERSONA_FILE_LIST[0], agent_ids=agent_id_to_name)
-    # print(f"Persona responses: {persona_responses}")
 
     # Elections Metrics.
     winners, total_votes, consecutive_wins = election_metrics(elections_data)
@@ -138,27 +230,29 @@ def main(argv: list[str]):
       totals_map["election_total_votes"][agent_name] += float(total)
     for agent_name, consecutive in consecutive_wins.items():
       totals_map["election_consecutive_wins"][agent_name] += float(consecutive)
-    # print(f"Election winners: {winners}\n")
-    # print(f"Election total votes: {total_votes}\n")
-    # print(f"Election consecutive wins: {consecutive_wins}\n")
+    if DEBUG:
+      print(f"Election winners: {winners}\n")
+      print(f"Election total votes: {total_votes}\n")
+      print(f"Election consecutive wins: {consecutive_wins}\n")
 
     # Measure Inequality va Gini.
-    gini_cycle_coefficients, agent_map = metric_gini_coefficient(harvest_data)
+    gini_cycle_coefficients, _ = metric_gini_coefficient(harvest_data)
     for idx, gini_coeff in enumerate(gini_cycle_coefficients):
       totals_map["gini_cycle_coefficients"][idx] += gini_coeff
-    # print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
-    # print(f"Gini Agent map: {agent_map}\n")
+    if DEBUG:
+      print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
 
   for totals_key, totals_value in totals_map.items():
     if isinstance(totals_value, collections.defaultdict):
       for key, value in totals_value.items():
-        totals_map[key][value] = value / len(MODEL_PATH_LIST_GPT_4O)
+        totals_map[totals_key][key] = value / len(MODEL_PATH_LIST)
     elif isinstance(totals_value, list):
       for idx, value in enumerate(totals_value):
-        totals_map[totals_key][idx] = value / len(MODEL_PATH_LIST_GPT_4O)
+        totals_map[totals_key][idx] = value / len(MODEL_PATH_LIST)
     else:
-      totals_map[totals_key] = totals_value / len(MODEL_PATH_LIST_GPT_4O)
-  print(f"Totals:\n\n{totals_map}\n")
+      totals_map[totals_key] = totals_value / len(MODEL_PATH_LIST)
+  totals_map = dict(totals_map)
+  print(f"Totals:\n{json.dumps(totals_map, indent=2)}")
 
 
 def get_persona_responses(
@@ -317,12 +411,6 @@ def read_env_data(agent_id_to_name: dict[str, str]):
   # Initialise agent network.
   network_weights = {}
   inverse_weight_network = {}
-  # for name_from in agent_id_to_name.values():
-  # network_weights[name_from] = {}
-  # inverse_network[name_from] = {}
-  # for name_to in agent_id_to_name.values():
-  #   network_weights[name_from][name_to] = {"weight": 0.0}
-  #   inverse_network[name_from][name_to] = {"weight": 78.0}  # num edges
 
   with open(os.path.join(JSON_BASE_PATH, ENV_DATA), "r") as f:
     json_dict = json.load(f)
@@ -483,11 +571,8 @@ def compute_cummulative_resource(
   yields:
       np.array([[1, 3, 6], [4, 9, 15]])
   """
-  # TODO(rfaulk): Infer num cycles.
-  # n_rounds = len(next(iter(agent_resources)))
-  n_rounds = 12
   cumulative_agent_resources = np.ndarray(
-      shape=(len(agent_resources), n_rounds)
+      shape=(len(agent_resources), MAX_CYCLES)
   )
   idx = 0
   agent_map = {}
@@ -528,9 +613,13 @@ def metric_gini_coefficient(
   """
   agent_resources_list = collections.defaultdict(list)
   # TODO(rfaulk): Compute the range limit.
-  for cycle in range(12):
+  n_cycles_survived = max(int(cycle) for cycle in agent_resources) + 1
+  for cycle in range(n_cycles_survived):
     for agent_name, harvest in agent_resources[str(cycle)].items():
       agent_resources_list[agent_name].append(harvest)
+  for _ in range(n_cycles_survived, MAX_CYCLES):
+    for agent_name in agent_resources_list:
+      agent_resources_list[agent_name].append(0.0)
   cumulative_agent_resources, agent_map = compute_cummulative_resource(
       agent_resources_list
   )
