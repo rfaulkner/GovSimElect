@@ -225,7 +225,7 @@ def run(
           wrapper,
           framework_wrapper,
           embedding_model,
-          os.path.join(experiment_storage, "persona_3"),
+          os.path.join(experiment_storage, "persona_2"),
           persona_type=PersonaType.CLEAR_DIRECT_LEADER,
       ),
       "persona_3": FishingPersona(
@@ -233,7 +233,7 @@ def run(
           wrapper,
           framework_wrapper,
           embedding_model,
-          os.path.join(experiment_storage, "persona_4"),
+          os.path.join(experiment_storage, "persona_3"),
           persona_type=PersonaType.VERBOSE_REASONING_LEADER,
       ),
   }
