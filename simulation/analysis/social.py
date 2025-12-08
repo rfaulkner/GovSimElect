@@ -94,7 +94,7 @@ MODEL_PATH_LIST_QWEN_110 = [
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_4",
 ]
 
-MODEL_PATH_LIST_GPT_4_5_turbo = [
+MODEL_PATH_LIST_GPT_4_turbo = [
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_0",
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_1",
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_2",
@@ -126,6 +126,22 @@ MODEL_PATH_LIST_GPT_4O_50_AGENTS = [
     "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_9",
 ]
 
+MODEL_PATH_LIST_SONNET = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_0/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_1/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_2/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_3/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_4/",
+]
+
+MODEL_PATH_LIST_HAIKU = [
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_0/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_1/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_2/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_3/",
+    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_4/",
+]
+
 PERSONA_FILE_LIST = [
     "persona_0/nodes.json",
     "persona_1/nodes.json",
@@ -138,7 +154,7 @@ ELECTIONS_DATA = "consolidated_results.json"
 ENV_DATA = "log_env.json"
 CHAT_TASK_STR = "Task: What would you say next in the group chat?"
 
-DEBUG = False
+DEBUG = True
 
 
 def main(argv: list[str]):
@@ -162,7 +178,7 @@ def main(argv: list[str]):
   }
   global JSON_BASE_PATH
   global MODEL_PATH_LIST
-  MODEL_PATH_LIST = MODEL_PATH_LIST_LLAMA_8
+  MODEL_PATH_LIST = MODEL_PATH_LIST_SONNET
 
   for model_path in MODEL_PATH_LIST:
 
