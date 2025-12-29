@@ -10,9 +10,9 @@ llm:
   top_p: 1.0
   base_url: "https://openrouter.ai/api/v1"  # Replace with your actual vONF endpoint URL.
   api_key: ""
-  mix_llm: 0
   iter: 0
 
+mix_llm: [] # disable
 seed: 42
 debug: false
 
