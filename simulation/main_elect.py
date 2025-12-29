@@ -23,7 +23,7 @@ from .persona import EmbeddingModel
 from simulation.scenarios.fishing.run_election import run as run_scenario_fishing
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config_api")
+@hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
   print(OmegaConf.to_yaml(cfg))
   set_seed(cfg.seed)
@@ -33,6 +33,8 @@ def main(cfg: DictConfig):
       cfg.experiment.name, OmegaConf.to_object(cfg), debug=cfg.debug
   )
   run_name = logger.run_name if logger.run_name else f"{cfg.llm.path}_run_{cfg.llm.iter}"
+  if "gpt" in cfg.llm.path:
+    run_name = os.path.join("gpt", run_name)
   experiment_storage = os.path.join(
       os.path.dirname(__file__),
       f"./results/{cfg.experiment.name}/{run_name}",
