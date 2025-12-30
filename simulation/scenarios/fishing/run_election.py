@@ -18,7 +18,7 @@ from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
 
 from .agents.persona_v3 import FishingPersona
-from .agents.persona_v3.cognition import leader_agendas as leader_agendas_lib
+from .agents.persona_v3.cognition import leaders as leaders_lib
 from .agents.persona_v3.cognition import utils as cognition_utils
 
 from .environment import FishingConcurrentEnv
@@ -53,7 +53,7 @@ def perform_election(
   leader_agendas = {}
   # Get updated leader agendas using the leader prompt functions
   for _, leader in leader_candidates.items():
-    agenda, _ = leader_agendas_lib.prompt_leader_agenda(
+    agenda, _ = leaders_lib.prompt_leader_agenda(
         model=wrapper,
         init_persona=leader,
         current_location=current_location,
@@ -161,8 +161,8 @@ def run(
   # Get the leader candidates.
   # TODO(rfaulk): Remove hardcode, use config and sample leader populations.
   # leader_distribution = extract_leader_group(cfg.agent.leader_population_type)
-  leader_distribution = leader_agendas_lib.LeaderPopulationType.BALANCED
-  leader_svos, leader_types = leader_agendas_lib.sample_leader_svos(
+  leader_distribution = leaders_lib.LeaderPopulationType.BALANCED
+  leader_svos, leader_types = leaders_lib.sample_leader_svos(
       leader_distribution)
 
   # Initialize leader candidates
