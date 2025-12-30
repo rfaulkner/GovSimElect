@@ -36,6 +36,8 @@ class SVOPersonaType(enum.Enum):
 
 
 class PersonaAgent:
+  """Defines the base persona agent class."""
+  
   agent_id: int
   identity: PersonaIdentity
 
@@ -63,6 +65,7 @@ class PersonaAgent:
     self.base_path = base_path
     os.makedirs(base_path, exist_ok=True)
 
+    self.current_time = datetime.now()
     self.memory = memory_cls(base_path)
     self.perceive = perceive_cls(model, model_framework)
     self.retrieve = retrieve_cls(

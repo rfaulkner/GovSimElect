@@ -27,8 +27,6 @@ from .environment import FishingPerturbationEnv
 
 cognition_utils.SYS_VERSION = "v3"
 
-TOTAL_NUM_PERSONAS = 12
-
 
 def get_memories(
     persona: PersonaAgent, current_location: str = "lake") -> list[str]:
@@ -37,7 +35,7 @@ def get_memories(
   try:
     retireved_memory = persona.retrieve.retrieve(
         [current_location], 10)
-  except Exception as e:
+  except AttributeError as e:
     print(f"Couldn't retrieve memories for {persona.identity.name}: {e}")
   return retireved_memory
 
@@ -183,9 +181,9 @@ def run(
   # Initialize regular personas
   personas = {**leader_candidates}
   num_leaders = len(leader_types)
-  assert 2 * num_leaders <= TOTAL_NUM_PERSONAS, (
+  assert 2 * num_leaders <= cfg.env.num_agents, (
       "Not enough personas for an election.")
-  for i in range(num_leaders, TOTAL_NUM_PERSONAS):
+  for i in range(num_leaders, cfg.env.num_agents):
     personas[f"persona_{i}"] = FishingPersona(
         cfg.agent,
         wrapper,
@@ -226,7 +224,7 @@ def run(
                       f"persona_{i}", cfg.personas.get("default", {})
                   ),
               )
-              for i in range(TOTAL_NUM_PERSONAS)
+              for i in range(cfg.env.num_agents)
           ])
       },
   )
@@ -257,10 +255,10 @@ def run(
       cfg.env,
       experiment_storage,
       agent_id_to_name,
-      num_agents=TOTAL_NUM_PERSONAS)
+      num_agents=cfg.env.num_agents)
   # Initialize the environment.
   sustainability_threshold = cfg.env.initial_resource_in_pool // (
-      2 * TOTAL_NUM_PERSONAS
+      2 * cfg.env.num_agents
   )
   agent_id, obs = env.reset(
       sustainability_threshold=sustainability_threshold
@@ -313,7 +311,7 @@ def run(
           "conversation_resource_limit",
           *[
               f"persona_{i}_collected_resource"
-              for i in range(TOTAL_NUM_PERSONAS)
+              for i in range(cfg.env.num_agents)
           ],
       ]:
         if s in action.stats:
