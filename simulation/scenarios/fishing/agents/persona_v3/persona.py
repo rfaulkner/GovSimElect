@@ -1,44 +1,27 @@
 """Defines the fishing persona logic and agent loop."""
 
-from enum import Enum
-from typing import Any
-
-from simulation.persona import (
-    PerceiveComponent,
-    PersonaAgent,
-    RetrieveComponent,
-)
-from simulation.persona.common import (
-    PersonaAction,
-    PersonaActionChat,
-    PersonaActionHarvesting,
-)
-
+from simulation.persona import PerceiveComponent
+from simulation.persona import PersonaAgent
+from simulation.persona import RetrieveComponent
+from simulation.persona.common import PersonaAction
+from simulation.persona.common import PersonaActionChat
+from simulation.persona.common import PersonaActionHarvesting
 from simulation.persona.embedding_model import EmbeddingModel
 from simulation.persona.memory import AssociativeMemory
 from simulation.scenarios.common.environment import HarvestingObs
+from simulation.scenarios.fishing.agents.persona_v3.cognition import FishingActComponent
+from simulation.scenarios.fishing.agents.persona_v3.cognition import FishingConverseComponent
+from simulation.scenarios.fishing.agents.persona_v3.cognition import FishingPlanComponent
+from simulation.scenarios.fishing.agents.persona_v3.cognition import FishingReflectComponent
+from simulation.scenarios.fishing.agents.persona_v3.cognition import FishingStoreComponent
 from simulation.utils import ModelWandbWrapper
-
-from .cognition import (
-    FishingActComponent,
-    FishingConverseComponent,
-    FishingPlanComponent,
-    FishingReflectComponent,
-    FishingStoreComponent,
-)
-
-
-class PersonaType(Enum):
-    VOTER = 1
-    CLEAR_REASONING_LEADER = 2
-    VERBOSE_REASONING_LEADER = 3
-    CLEAR_DIRECT_LEADER = 4
-    VERBOSE_DIRECT_LEADER = 5
 
 DEFAULT_AGENDA = "No specific guidance."
 
 
 class FishingPersona(PersonaAgent):
+  """Defines the fishing persona logic and agent loop."""
+
   last_collected_resource_num: int
   other_personas: dict[str, "FishingPersona"]
 
@@ -60,7 +43,8 @@ class FishingPersona(PersonaAgent):
       plan_cls: type[FishingPlanComponent] = FishingPlanComponent,
       act_cls: type[FishingActComponent] = FishingActComponent,
       converse_cls: type[FishingConverseComponent] = FishingConverseComponent,
-      persona_type: PersonaType = PersonaType.VOTER,
+      svo_angle: float = 0.0,   # PROSOCIAL
+      disinfo: bool = False,
   ) -> None:
     super().__init__(
         cfg,
@@ -79,36 +63,44 @@ class FishingPersona(PersonaAgent):
     )
     # Initial agenda is empty.
     self._agenda = DEFAULT_AGENDA
-    self._persona_type = persona_type
+    self._overuse_threshold = None
+    self._svo_angle = svo_angle
+    self._disinfo = disinfo
 
   def update_agenda(self, agenda: str) -> None:
     self._agenda = agenda
 
-  @property
-  def persona_type(self) -> PersonaType:
-    return self._persona_type
 
-  def loop(self, obs: HarvestingObs, debug: bool = False) -> PersonaAction:
-    res = []
+  def update_overuse_threshold(self, overuse_threshold: float) -> None:
+    self._overuse_threshold = overuse_threshold
+
+  @property
+  def svo_angle(self) -> float:
+    return self._svo_angle
+
+  def loop(self, obs: HarvestingObs, debug: bool = True) -> PersonaAction:
     self.current_time = obs.current_time  # update current time
 
     self.perceive.perceive(obs)
     # phase based game
 
+    action = PersonaAction(self.agent_id, "lake")
     if obs.current_location == "lake" and obs.phase == "lake":
       # Stage 1. Pond situation / Stage 2. Fishermen’s decisions
       retrieved_memory = self.retrieve.retrieve([obs.current_location], 10)
       if debug:
         print(f"MEMORIES: {retrieved_memory}")
       if obs.current_resource_num > 0:
-        num_resource, html_interactions = self.act.choose_how_many_fish_to_chat(
-            retrieved_memory,
-            obs.current_location,
-            obs.current_time,
-            obs.context,
-            range(0, obs.current_resource_num + 1),
-            obs.before_harvesting_sustainability_threshold,
-            self._agenda,
+        num_resource, html_interactions = (
+            self.act.choose_how_many_fish_to_catch(
+                retrieved_memory,
+                obs.current_location,
+                obs.current_time,
+                obs.context,
+                range(0, obs.current_resource_num + 1),
+                obs.before_harvesting_sustainability_threshold,
+                self._agenda,
+            )
         )
         action = PersonaActionHarvesting(
             self.agent_id,
@@ -135,7 +127,7 @@ class FishingPersona(PersonaAgent):
       action = PersonaAction(self.agent_id, "lake")
     elif obs.current_location == "restaurant":
       # Stage 3. Social Interaction a)
-      # Need to first get the identities of the other personas that are in the 
+      # Need to first get the identities of the other personas that are in the
       # restaurant
       other_personas_identities = []
       for agent_id, location in obs.current_location_agents.items():

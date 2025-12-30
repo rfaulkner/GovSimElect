@@ -1,4 +1,4 @@
-"""Runs an election."""
+"""Runs simulation with an election."""
 
 import collections
 import datetime
@@ -7,30 +7,27 @@ import os
 import random
 
 import numpy as np
-from omegaconf import DictConfig
-from omegaconf import OmegaConf
+import omegaconf
+
 from simulation.persona import EmbeddingModel
 from simulation.persona import PersonaAgent
+from simulation.persona import SVOPersonaType
+
 from simulation.persona.common import PersonaActionHarvesting
 from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
 
-# from .agents.persona_leader import LeaderPersona
-from .agents.persona_v3 import FishingPersona, PersonaType
+from .agents.persona_v3 import FishingPersona
+from .agents.persona_v3.cognition import leader_agendas as leader_agendas_lib
 from .agents.persona_v3.cognition import utils as cognition_utils
-from .agents.persona_v3.cognition.leader_agendas import prompt_leader_agenda_clear_direct
-from .agents.persona_v3.cognition.leader_agendas import prompt_leader_agenda_clear_explain
-from .agents.persona_v3.cognition.leader_agendas import prompt_leader_agenda_verbose_direct
-from .agents.persona_v3.cognition.leader_agendas import prompt_leader_agenda_verbose_explain
+
 from .environment import FishingConcurrentEnv
 from .environment import FishingPerturbationEnv
 
 
 cognition_utils.SYS_VERSION = "v3"
 
-NUM_LEADERS = 4
-NUM_VOTERS = 8
-TOTAL_NUM_PERSONAS = NUM_LEADERS + NUM_VOTERS
+TOTAL_NUM_PERSONAS = 12
 
 
 def get_memories(
@@ -41,12 +38,13 @@ def get_memories(
     retireved_memory = persona.retrieve.retrieve(
         [current_location], 10)
   except Exception as e:
-    print(f"Couldn't retrieved memories for {persona.identity.name}: {e}")
+    print(f"Couldn't retrieve memories for {persona.identity.name}: {e}")
   return retireved_memory
 
 
 def perform_election(
     personas: dict[str, PersonaAgent],
+    # TODO(rfaulk): pass in sampled leader candidates....
     leader_candidates: dict[str, PersonaAgent],
     current_time: datetime,
     wrapper: ModelWandbWrapper,
@@ -56,59 +54,19 @@ def perform_election(
   """Runs an election among the leaders."""
   leader_agendas = {}
   # Get updated leader agendas using the leader prompt functions
-  for pid in leader_candidates:
-    if (
-        leader_candidates[pid].persona_type
-        == PersonaType.CLEAR_REASONING_LEADER
-    ):
-      agenda, _ = prompt_leader_agenda_clear_explain(
-          model=wrapper,
-          init_persona=leader_candidates[pid],
-          current_location=current_location,
-          current_time=current_time,
-          init_retrieved_memory=get_memories(leader_candidates[pid]),
-          total_fishers=len(personas),
-      )
-    elif (
-        leader_candidates[pid].persona_type == PersonaType.VERBOSE_DIRECT_LEADER
-    ):
-      agenda, _ = prompt_leader_agenda_verbose_direct(
-          model=wrapper,
-          init_persona=leader_candidates[pid],
-          current_location=current_location,
-          current_time=current_time,
-          init_retrieved_memory=get_memories(leader_candidates[pid]),
-          total_fishers=len(personas),
-
-      )
-    elif leader_candidates[pid].persona_type == PersonaType.CLEAR_DIRECT_LEADER:
-      agenda, _ = prompt_leader_agenda_clear_direct(
-          model=wrapper,
-          init_persona=leader_candidates[pid],
-          current_location=current_location,
-          current_time=current_time,
-          init_retrieved_memory=get_memories(leader_candidates[pid]),
-          total_fishers=len(personas),
-      )
-    elif (
-        leader_candidates[pid].persona_type
-        == PersonaType.VERBOSE_REASONING_LEADER
-    ):
-      agenda, _ = prompt_leader_agenda_verbose_explain(
-          model=wrapper,
-          init_persona=leader_candidates[pid],
-          current_location=current_location,
-          current_time=current_time,
-          init_retrieved_memory=get_memories(leader_candidates[pid]),
-          total_fishers=len(personas),
-      )
-    else:
-      raise ValueError(
-          f"Unknown leader persona type: {type(leader_candidates[pid])}"
-      )
-    leader_name = leader_candidates[pid].identity.name
+  for _, leader in leader_candidates.items():
+    agenda, _ = leader_agendas_lib.prompt_leader_agenda(
+        model=wrapper,
+        init_persona=leader,
+        current_location=current_location,
+        current_time=current_time,
+        init_retrieved_memory=get_memories(leader),
+        total_fishers=len(personas),
+        svo_angle=leader.svo_angle,
+        use_disinfo=False,  # TODO(rfaulk): Add disinfo options to the election.
+    )
     # print(f"\nAGENDA: {leader_candidates[pid].identity.name} {agenda}")
-    leader_agendas[leader_name] = agenda
+    leader_agendas[leader.identity.name] = agenda
 
   # print(f"Leader Agendas:\n{leader_agendas}")
   votes = {}
@@ -135,7 +93,7 @@ def perform_election(
       votes[candidate_str] = votes.get(candidate_str, 0) + 1
 
   # Determine winner (as the candidate's human-readable name)
-  # Randomly break ties.
+  # Randonly break ties.
   winner = max(votes.values())
   keys = [key for key, value in votes.items() if value == winner]
   winner = random.choice(keys)
@@ -155,7 +113,7 @@ def perform_election(
 
 
 def run(
-    cfg: DictConfig,
+    cfg: omegaconf.DictConfig,
     logger: ModelWandbWrapper,
     wrapper: ModelWandbWrapper,
     framework_wrapper: ModelWandbWrapper,
@@ -187,7 +145,7 @@ def run(
       {
           "experiment_id": datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
           "config": (
-              OmegaConf.to_container(cfg)
+              omegaconf.OmegaConf.to_container(cfg)
               if hasattr(cfg, "to_container")
               else str(cfg)
           ),
@@ -202,45 +160,32 @@ def run(
   else:
     raise ValueError(f"Unknown agent package: {cfg.agent.agent_package}")
 
+  # Get the leader candidates.
+  # TODO(rfaulk): Remove hardcode, use config and sample leader populations.
+  # leader_distribution = extract_leader_group(cfg.agent.leader_population_type)
+  leader_distribution = leader_agendas_lib.LeaderPopulationType.BALANCED
+  leader_svos, leader_types = leader_agendas_lib.sample_leader_svos(
+      leader_distribution)
+
   # Initialize leader candidates
-  leader_candidates = {
-      "persona_0": FishingPersona(
-          cfg.agent,
-          wrapper,
-          framework_wrapper,
-          embedding_model,
-          os.path.join(experiment_storage, "persona_0"),
-          persona_type=PersonaType.CLEAR_REASONING_LEADER,
-      ),
-      "persona_1": FishingPersona(
-          cfg.agent,
-          wrapper,
-          framework_wrapper,
-          embedding_model,
-          os.path.join(experiment_storage, "persona_1"),
-          persona_type=PersonaType.VERBOSE_DIRECT_LEADER,
-      ),
-      "persona_2": FishingPersona(
-          cfg.agent,
-          wrapper,
-          framework_wrapper,
-          embedding_model,
-          os.path.join(experiment_storage, "persona_2"),
-          persona_type=PersonaType.CLEAR_DIRECT_LEADER,
-      ),
-      "persona_3": FishingPersona(
-          cfg.agent,
-          wrapper,
-          framework_wrapper,
-          embedding_model,
-          os.path.join(experiment_storage, "persona_3"),
-          persona_type=PersonaType.VERBOSE_REASONING_LEADER,
-      ),
-  }
+  leader_candidates = {}
+  for i, svo_angle in enumerate(leader_svos):
+    leader_candidates[f"persona_{i}"] = FishingPersona(
+        cfg.agent,
+        wrapper,
+        framework_wrapper,
+        embedding_model,
+        os.path.join(experiment_storage, f"persona_{i}"),
+        svo_angle=svo_angle,
+        disinfo=False,
+    )
 
   # Initialize regular personas
   personas = {**leader_candidates}
-  for i in range(NUM_LEADERS, TOTAL_NUM_PERSONAS):
+  num_leaders = len(leader_types)
+  assert 2 * num_leaders <= TOTAL_NUM_PERSONAS, (
+      "Not enough personas for an election.")
+  for i in range(num_leaders, TOTAL_NUM_PERSONAS):
     personas[f"persona_{i}"] = FishingPersona(
         cfg.agent,
         wrapper,
@@ -258,8 +203,6 @@ def run(
       for i in range(num_personas)
   }
   # Log the identities to the consolidated log file.
-  leader_type_assignments = [
-      "clear", "gobbled", "clear_noreasoning", "gobbled_reasoning"]
   log_to_file(
       "persona_identities",
       {
@@ -270,7 +213,9 @@ def run(
                   else pid
               ),
               "type": (
-                  leader_type_assignments[i] if i < NUM_LEADERS else "follower"
+                  str(leader_types[i])
+                  if i < num_leaders
+                  else str(SVOPersonaType.NONE)
               ),
               "config": {k: str(v) for k, v in persona_config.items()},
           }
@@ -411,7 +356,6 @@ def run(
           "harvest_stats": round_harvest_stats[curr_round-1],
           "num_resources": env.internal_global_state["resource_in_pool"],
       })
-
   log_to_file("harvest", round_harvest_stats)
   log_to_file("sim-end", None)
   if round_harvest_stats:

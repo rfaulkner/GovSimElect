@@ -22,7 +22,7 @@ class FishingActComponent(ActComponent):
     ):
         super().__init__(model, model_framework, cfg)
 
-    def choose_how_many_fish_to_chat(
+    def choose_how_many_fish_to_catch(
         self,
         retrieved_memories: list[str],
         current_location: str,
