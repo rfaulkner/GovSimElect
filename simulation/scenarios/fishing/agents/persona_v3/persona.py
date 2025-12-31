@@ -3,6 +3,7 @@
 from simulation.persona import PerceiveComponent
 from simulation.persona import PersonaAgent
 from simulation.persona import RetrieveComponent
+from simulation.persona import SVOPersonaType
 from simulation.persona.common import PersonaAction
 from simulation.persona.common import PersonaActionChat
 from simulation.persona.common import PersonaActionHarvesting
@@ -43,7 +44,8 @@ class FishingPersona(PersonaAgent):
       plan_cls: type[FishingPlanComponent] = FishingPlanComponent,
       act_cls: type[FishingActComponent] = FishingActComponent,
       converse_cls: type[FishingConverseComponent] = FishingConverseComponent,
-      svo_angle: float = 0.0,   # PROSOCIAL
+      svo_angle: float | None = None,
+      svo_type: SVOPersonaType = SVOPersonaType.NONE,
       disinfo: bool = False,
   ) -> None:
     super().__init__(
@@ -65,11 +67,11 @@ class FishingPersona(PersonaAgent):
     self._agenda = DEFAULT_AGENDA
     self._overuse_threshold = None
     self._svo_angle = svo_angle
+    self._svo_type = svo_type
     self._disinfo = disinfo
 
   def update_agenda(self, agenda: str) -> None:
     self._agenda = agenda
-
 
   def update_overuse_threshold(self, overuse_threshold: float) -> None:
     self._overuse_threshold = overuse_threshold
@@ -77,6 +79,10 @@ class FishingPersona(PersonaAgent):
   @property
   def svo_angle(self) -> float:
     return self._svo_angle
+
+  @property
+  def svo_type(self) -> SVOPersonaType:
+    return self._svo_type
 
   def loop(self, obs: HarvestingObs, debug: bool = True) -> PersonaAction:
     self.current_time = obs.current_time  # update current time

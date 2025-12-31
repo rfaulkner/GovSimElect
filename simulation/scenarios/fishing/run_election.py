@@ -35,7 +35,7 @@ def get_memories(
   try:
     retireved_memory = persona.retrieve.retrieve(
         [current_location], 10)
-  except AttributeError as e:
+  except ValueError as e:
     print(f"Couldn't retrieve memories for {persona.identity.name}: {e}")
   return retireved_memory
 
@@ -47,6 +47,8 @@ def perform_election(
     current_time: datetime,
     wrapper: ModelWandbWrapper,
     agent_id_to_name: dict[int, str],
+    agent_name_to_id: dict[str, int],
+    # TODO(rfaulk): Need to fix this or remove, never changes.
     current_location: str = "lake",
 ):
   """Runs an election among the leaders."""
@@ -81,7 +83,6 @@ def perform_election(
           [leader.identity.name for _, leader in leader_candidates.items()],
           leader_agendas,
       )
-      # print(f"Vote {personas[persona_id].identity.name}: {vote}")
       # Determine candidate identifier: if vote has attribute 'name', use it;
       # otherwise, use its string
       candidate_id = vote.name if hasattr(vote, "name") else str(vote)
@@ -101,12 +102,17 @@ def perform_election(
     print(f"{candidate}: {vote_count} votes")
   print(f"\nWinner: {winner}")
   print("\nLeader Agendas:")
-  for pid, agenda in leader_agendas.items():
+  for agenda_id, agenda in leader_agendas.items():
     # Convert leader id to human-readable name using mapping
-    print(f"\n{agent_id_to_name.get(pid, pid)}'s Agenda:")
+    print(f"\n{agent_id_to_name.get(agenda_id, agenda_id)}'s Agenda:")
+    pid = agent_name_to_id.get(agenda_id, agenda_id)
+    print(
+        f"SVO Angle: {leader_candidates[pid].svo_angle}, SVO Type:"
+        f" {leader_candidates[pid].svo_type}\n"
+    )
     print(agenda)
   # In case the voters decide not to vote.
-  leader_agendas['none'] = "No leader agenda, use your best judgement."
+  leader_agendas["none"] = "No leader agenda, use your best judgement."
   return winner, votes, leader_agendas
 
 
@@ -167,7 +173,8 @@ def run(
 
   # Initialize leader candidates
   leader_candidates = {}
-  for i, svo_angle in enumerate(leader_svos):
+  for i, svo_data in enumerate(zip(leader_svos, leader_types)):
+    svo_angle, svo_type = svo_data
     leader_candidates[f"persona_{i}"] = FishingPersona(
         cfg.agent,
         wrapper,
@@ -175,6 +182,7 @@ def run(
         embedding_model,
         os.path.join(experiment_storage, f"persona_{i}"),
         svo_angle=svo_angle,
+        svo_type=svo_type,
         disinfo=False,
     )
 
@@ -230,12 +238,10 @@ def run(
   )
 
   # Build mappings: agent_name_to_id maps from a candidate's name to its
-  # internal id;
-  # agent_id_to_name reverses that mapping.
+  # internal id; agent_id_to_name reverses that mapping.
   agent_name_to_id = {obj.name: k for k, obj in identities.items()}
   agent_name_to_id["framework"] = "framework"
   agent_id_to_name = {v: k for k, v in agent_name_to_id.items()}
-  # print(f"Agent ID to Name:\n\n{agent_id_to_name}")
 
   # Initialize each persona and add references
   for persona in personas:
@@ -268,7 +274,12 @@ def run(
   # Run the first election
   current_time = datetime.datetime.now()
   winner, votes, leader_agendas = perform_election(
-      personas, leader_candidates, current_time, wrapper, agent_id_to_name
+      personas,
+      leader_candidates,
+      current_time,
+      wrapper,
+      agent_id_to_name=agent_id_to_name,
+      agent_name_to_id=agent_name_to_id,
   )
   election_results[0] = {
       "round": 0,
@@ -332,6 +343,7 @@ def run(
           current_time,
           wrapper,
           agent_id_to_name,
+          agent_name_to_id,
       )
       agenda = leader_agendas[winner]
       election_results[curr_round] = {
