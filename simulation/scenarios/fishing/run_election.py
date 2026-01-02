@@ -50,6 +50,9 @@ def perform_election(
     agent_name_to_id: dict[str, int],
     # TODO(rfaulk): Need to fix this or remove, never changes.
     current_location: str = "lake",
+    last_winning_agenda: str | None = None,
+    harvest_report: str | None = None,
+    harvest_stats: str | None = None,
 ):
   """Runs an election among the leaders."""
   leader_agendas = {}
@@ -63,6 +66,9 @@ def perform_election(
         init_retrieved_memory=get_memories(leader),
         total_fishers=len(personas),
         svo_angle=leader.svo_angle,
+        last_winning_agenda=last_winning_agenda,
+        harvest_report=harvest_report,
+        harvest_stats=harvest_stats,
         use_disinfo=False,  # TODO(rfaulk): Add disinfo options to the election.
     )
     # print(f"\nAGENDA: {leader_candidates[pid].identity.name} {agenda}")
@@ -301,14 +307,18 @@ def run(
   })
   agenda = leader_agendas[winner]
 
-  # Main simulation loop
+  # Track harvest stats for each round.
   round_harvest_stats = collections.defaultdict(
       lambda: collections.defaultdict(int)
   )
+  leader_harvest_report = None
+
+  # MAIN SIM LOOP.
   while True:
     agent = personas[agent_id]
-    # Set the current agenda.
+    # Set the current agenda and report.
     agent.update_agenda(agenda)
+    agent.update_harvest_report(leader_harvest_report)
     action = agent.loop(obs)
     agent_id, obs, _, termination = env.step(action)
 
@@ -337,13 +347,24 @@ def run(
     if curr_round != env.num_round:
       curr_round = env.num_round
       current_time = datetime.datetime.now()
+      # TODO(rfaulk): Add disinfo to the report.
+      if curr_round-1 in round_harvest_stats:
+        leader_harvest_report = leaders_lib.make_harvest_report(
+            personas, round_harvest_stats[curr_round-1])
+      print(f"ROUND {curr_round} HARVEST REPORT:\n{leader_harvest_report}")
+      # Update the harvest report for the leader.
       winner, votes, leader_agendas = perform_election(
           personas,
           leader_candidates,
           current_time,
           wrapper,
-          agent_id_to_name,
-          agent_name_to_id,
+          agent_id_to_name=agent_id_to_name,
+          agent_name_to_id=agent_name_to_id,
+          # current_location=obs.current_location,
+          last_winning_agenda=agenda,
+          # TODO(rfaulk): When leaders can inject their own reports nodify this.
+          harvest_report=leader_harvest_report,
+          # harvest_stats=round_harvest_stats[curr_round-1],
       )
       agenda = leader_agendas[winner]
       election_results[curr_round] = {
@@ -366,10 +387,16 @@ def run(
           "harvest_stats": round_harvest_stats[curr_round-1],
           "num_resources": env.internal_global_state["resource_in_pool"],
       })
+
+  # Final harvest report.
+  leader_harvest_report = leaders_lib.make_harvest_report(
+            personas, round_harvest_stats[curr_round])
+  print(f"\FINAL HARVEST REPORT - ROUND {curr_round}:\n{leader_harvest_report}")
+
   log_to_file("harvest", round_harvest_stats)
   log_to_file("sim-end", None)
-  if round_harvest_stats:
-    logger.log_game(round_harvest_stats)
+  # if round_harvest_stats:
+  #   logger.log_game(round_harvest_stats)
   env.save_log()
   for persona in personas:
     personas[persona].memory.save()

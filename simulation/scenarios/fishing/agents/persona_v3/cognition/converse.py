@@ -33,13 +33,14 @@ class FishingConverseComponent(ConverseComponent):
       current_time: datetime,
       current_context: str,
       agent_resource_num: dict[str, int],
-      mayoral_agenda: Optional[str] = None,
+      mayoral_agenda: str | None = None,
+      harvest_report: str | None = None,
   ) -> tuple[list[tuple[str, str]], str]:
     current_conversation: list[tuple[PersonaIdentity, str]] = []
 
     html_interactions = []
     # TODO(rfaulk): Assign this persona based on the last vote.
-    current_mayor = PersonaIdentity("framework", "Mayor")
+    current_leader = PersonaIdentity("framework", "Leader")
 
     # Inject fake conversation about how many fish each person caught
     if (
@@ -66,26 +67,26 @@ class FishingConverseComponent(ConverseComponent):
         and self.cfg.inject_resource_observation_strategy == "manager"
     ):
       # prepare report from pov of the manager
-      report = ""
-      for persona in target_personas:
-        p = self.other_personas[persona.name]
-        report += (
-            f"{p.identity.name} caught {agent_resource_num[p.agent_id]} tons of"
-            " fish. "
-        )
+      # report = ""
+      # for persona in target_personas:
+      #   p = self.other_personas[persona.name]
+      #   report += (
+      #       f"{p.identity.name} caught {agent_resource_num[p.agent_id]} tons of"
+      #       " fish. "
+      #   )
       current_conversation.append(
           (
-              current_mayor,
+              current_leader,
               (
-                  "Ladies and gentlemen, let me give you the monthly fishing"
-                  f" report. {report}"
+                  "Fellow citizens, let me give you the monthly fishing"
+                  f" report:\n{harvest_report}"
               ),
           ),
       )
       if mayoral_agenda:
         current_conversation.append(
             (
-                current_mayor,
+                current_leader,
                 (
                     "I'd also like to share my policy agenda to help guide our "
                     f"collective action: {mayoral_agenda}"

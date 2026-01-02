@@ -81,11 +81,14 @@ def prompt_leader_agenda(
     init_retrieved_memory: list[str],
     total_fishers: int,
     svo_angle: float,
+    last_winning_agenda: str | None = None,
+    harvest_report: str | None = None,
+    harvest_stats: str | None = None,
     use_disinfo: bool = False,
     debug: bool = False,
 ) -> tuple[str, str]:
   """Generic leader agenda prompt.
-  
+
   Args:
     model: The target LLM in a weights and biases wrapper.
     init_persona: The persona to generate the agenda for.
@@ -94,6 +97,12 @@ def prompt_leader_agenda(
     init_retrieved_memory: The retrieved memory of the persona.
     total_fishers: The total number of fishers in the community.
     svo_angle: The SVO angle of the leader.
+    last_winning_agenda: The agenda of the last winning leader. If None, no
+      agenda will be used.
+    harvest_report: The harvest report of the last round. If None, no report
+      will be used.
+    harvest_stats: The harvest stats of the last round. If None, no stats will
+      be used.
     use_disinfo: Whether to use disinfo in the prompt.
     debug: Whether to print the prompt and response.
 
@@ -110,17 +119,31 @@ def prompt_leader_agenda(
         " resources.\n"
     )
     lm += memory_prompt(init_persona.identity, init_retrieved_memory)
-    lm += GOAL_STATEMENT
-    lm += SVO_LEADER_TASK + svo_angle_prompt_str
+    lm += GOAL_STATEMENT  # Overall task goal.
+    lm += SVO_LEADER_TASK + svo_angle_prompt_str  # SVO Prompt.
     if use_disinfo:
       lm += "\n" + DISINFORMATION_PROMPT
+
+    # Reference last rounds winning agenda, harvest report, and true stats.
+    if last_winning_agenda:
+      lm += (
+          f"For reference, the last winning agenda was:\n{last_winning_agenda}"
+      )
+    if harvest_report:
+      lm += f"For reference, the last harvest report was:\n{harvest_report}"
+    if harvest_stats:
+      lm += (
+          f"For reference, the last true harvest stats were:\n{harvest_stats}"
+      )
+
+    # Detail the agenda format.
     lm += "Describe your agenda in the following format:\n"
     lm += "1. Your principles for sustainable fishing.\n"
     lm += "2. How you will allocate fishing quotas.\n"
     lm += "3. Your enforcement approach.\n"
     lm += reasoning_steps_prompt()
     lm += (
-        'Output format:\nMy agenda as mayor: [fill in your agenda here] END\n"'
+        'Output format:\nMy agenda as leader: [fill in your agenda here] END\n"'
     )
     if debug:
       print(f"\n\nCURRENT PROMPT:\n\n{lm._current_prompt()}\n")  # pylint: disable=protected-access
@@ -142,12 +165,38 @@ def prompt_leader_agenda(
   return agenda, lm.html()
 
 
-# TODO(rfaulk): Compose the leader's newsletter.
-def prompt_leader_newsletter(
-    # TODO(rfaulk): Implement this. input facts, output report.
+def prompt_harvest_report(
+    true_report: str,
+    init_retrieved_memory: list[str],
+    total_fishers: int,
+    svo_angle: float,
+    last_winning_agenda: str | None = None,
+    ) -> str:
+  """Harvest report prompt."""
+  del init_retrieved_memory
+  del total_fishers
+  del svo_angle
+  del last_winning_agenda
+  # TODO(rfaulk): let the leader decide how to report the harvest stats.
+  return true_report
+
+
+def make_harvest_report(
+    personas: dict[str, PersonaAgent],
+    last_rounds_harvest_stats: dict[str, int],
+    disinfo: bool = False,
 ) -> tuple[str, str]:
   """Leader newsletter prompt."""
-  raise NotImplementedError("Leader newsletter prompt not implemented.")
+  # TODO(rfaulk): Add disinfo to the report.
+  del disinfo
+  report = "Last round's fishing stats:\n\n"
+  for _, persona in personas.items():
+    report += (
+        f"\t{persona.identity.name} caught"
+        f" {last_rounds_harvest_stats[persona.identity.name]} tons of"
+        " fish\n"
+    )
+  return report
 
 
 def sample_leader_svos(

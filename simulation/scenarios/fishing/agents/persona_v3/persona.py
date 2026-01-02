@@ -47,6 +47,7 @@ class FishingPersona(PersonaAgent):
       svo_angle: float | None = None,
       svo_type: SVOPersonaType = SVOPersonaType.NONE,
       disinfo: bool = False,
+      harvest_report: str | None = None,
   ) -> None:
     super().__init__(
         cfg,
@@ -69,12 +70,28 @@ class FishingPersona(PersonaAgent):
     self._svo_angle = svo_angle
     self._svo_type = svo_type
     self._disinfo = disinfo
+    self._harvest_report = harvest_report
 
   def update_agenda(self, agenda: str) -> None:
     self._agenda = agenda
 
+  def update_harvest_report(self, harvest_report: str) -> None:
+    self._harvest_report = harvest_report
+
   def update_overuse_threshold(self, overuse_threshold: float) -> None:
     self._overuse_threshold = overuse_threshold
+
+  @property
+  def agenda(self) -> str:
+    return self._agenda
+
+  @property
+  def disinfo(self) -> bool:
+    return self._disinfo
+
+  @property
+  def harvest_report(self) -> str:
+    return self._harvest_report
 
   @property
   def svo_angle(self) -> float:
@@ -154,6 +171,7 @@ class FishingPersona(PersonaAgent):
           obs.context,
           obs.agent_resource_num,
           mayoral_agenda=self._agenda,
+          harvest_report=self._harvest_report,
       )
       action = PersonaActionChat(
           self.agent_id,
