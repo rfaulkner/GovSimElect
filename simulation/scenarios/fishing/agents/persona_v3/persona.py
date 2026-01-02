@@ -172,6 +172,7 @@ class FishingPersona(PersonaAgent):
           obs.agent_resource_num,
           mayoral_agenda=self._agenda,
           harvest_report=self._harvest_report,
+          debug=debug,
       )
       action = PersonaActionChat(
           self.agent_id,

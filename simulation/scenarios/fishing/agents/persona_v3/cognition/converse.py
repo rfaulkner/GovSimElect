@@ -35,6 +35,7 @@ class FishingConverseComponent(ConverseComponent):
       agent_resource_num: dict[str, int],
       mayoral_agenda: str | None = None,
       harvest_report: str | None = None,
+      debug: bool = False,
   ) -> tuple[list[tuple[str, str]], str]:
     current_conversation: list[tuple[PersonaIdentity, str]] = []
 
@@ -165,6 +166,11 @@ class FishingConverseComponent(ConverseComponent):
             self.persona.current_time,
             always_include=True,
         )
+    if debug:
+      print(
+          "CONVERSATION TRANSCRIPT:"
+          f" {self.conversation_render(current_conversation)}."
+      )
     return (
         current_conversation,
         summary_conversation,
