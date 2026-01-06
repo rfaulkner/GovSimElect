@@ -8,19 +8,17 @@ import random
 
 import numpy as np
 import omegaconf
-
 from simulation.persona import EmbeddingModel
 from simulation.persona import PersonaAgent
 from simulation.persona import SVOPersonaType
-
 from simulation.persona.common import PersonaActionHarvesting
+from simulation.persona.common import PersonaEvent
 from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
 
 from .agents.persona_v3 import FishingPersona
 from .agents.persona_v3.cognition import leaders as leaders_lib
 from .agents.persona_v3.cognition import utils as cognition_utils
-
 from .environment import FishingConcurrentEnv
 from .environment import FishingPerturbationEnv
 
@@ -28,43 +26,30 @@ from .environment import FishingPerturbationEnv
 cognition_utils.SYS_VERSION = "v3"
 
 
-def get_memories(
-    persona: PersonaAgent, current_location: str = "lake") -> list[str]:
-  """Get memories for a persona."""
-  retireved_memory = []
-  try:
-    retireved_memory = persona.retrieve.retrieve(
-        [current_location], 10)
-  except ValueError as e:
-    print(f"Couldn't retrieve memories for {persona.identity.name}: {e}")
-  return retireved_memory
-
-
 def perform_election(
     personas: dict[str, PersonaAgent],
-    # TODO(rfaulk): pass in sampled leader candidates....
     leader_candidates: dict[str, PersonaAgent],
     current_time: datetime,
     wrapper: ModelWandbWrapper,
+    curr_round: int,
     agent_id_to_name: dict[int, str],
     agent_name_to_id: dict[str, int],
-    # TODO(rfaulk): Need to fix this or remove, never changes.
-    current_location: str = "lake",
     last_winning_agenda: str | None = None,
     harvest_report: str | None = None,
     harvest_stats: str | None = None,
     disinfo: bool = False,
 ) -> tuple[str, dict[str, int], dict[str, str]]:
   """Runs an election among the leaders."""
+  print(f"ROUND {curr_round}: ELECTION\n==================\n")
   leader_agendas = {}
   # Get updated leader agendas using the leader prompt functions
   for _, leader in leader_candidates.items():
     agenda, _ = leaders_lib.prompt_leader_agenda(
         model=wrapper,
         init_persona=leader,
-        current_location=current_location,
+        current_location="restaurant",  # Elections are at the restaurant.
         current_time=current_time,
-        init_retrieved_memory=get_memories(leader),
+        init_retrieved_memory=leaders_lib.get_memories(leader),
         total_fishers=len(personas),
         svo_angle=leader.svo_angle,
         last_winning_agenda=last_winning_agenda,
@@ -72,23 +57,23 @@ def perform_election(
         harvest_stats=harvest_stats,
         use_disinfo=disinfo,
     )
-    # print(f"\nAGENDA: {leader_candidates[pid].identity.name} {agenda}")
     leader_agendas[leader.identity.name] = agenda
-
-  # print(f"Leader Agendas:\n{leader_agendas}")
   votes = {}
   for persona_id in personas:
     # Only non-leader personas cast votes
     if persona_id not in leader_candidates:
       # Get memories.
-      current_location = "lake"
-      retireved_memory = get_memories(personas[persona_id], current_location)
+      retireved_memory = leaders_lib.get_memories(personas[persona_id])
       vote, _ = personas[persona_id].act.participate_in_election(
-          retireved_memory,  # retrieved memories; adjust as needed
-          current_location,  # default location
-          current_time.strftime("%H-%M-%S"),  # current time as string
-          [leader.identity.name for _, leader in leader_candidates.items()],
-          leader_agendas,
+          retrieved_memories=retireved_memory,
+          current_location="",  # TODO(rfaulk): remove.
+          current_time=current_time.strftime(
+              "%H-%M-%S"
+          ),  # current time as string
+          candidates=[
+              leader.identity.name for _, leader in leader_candidates.items()
+          ],
+          leader_agendas=leader_agendas,
       )
       # Determine candidate identifier: if vote has attribute 'name', use it;
       # otherwise, use its string
@@ -97,21 +82,32 @@ def perform_election(
       # candidate_id as is.
       candidate_str = agent_id_to_name.get(candidate_id, candidate_id)
       votes[candidate_str] = votes.get(candidate_str, 0) + 1
+      personas[persona_id].store.store_event(
+          PersonaEvent(
+              f"Round {curr_round} vote: {vote}",
+              created=current_time,
+              expiration=leaders_lib.get_expiration_next_month(current_time),
+              always_include=True,
+          )
+      )
 
   # Determine winner (as the candidate's human-readable name)
   # Randonly break ties.
   winner = max(votes.values())
   keys = [key for key, value in votes.items() if value == winner]
   winner = random.choice(keys)
-
-  print("\nElection Voting Results:")
+  # LOGGING.
+  print("\n=================\nELECTION RESULTS\n=================")
   for candidate, vote_count in votes.items():
     print(f"{candidate}: {vote_count} votes")
-  print(f"\nWinner: {winner}")
-  print("\nLeader Agendas:")
+  print(f"\nWINNER: {winner}")
+  print("\n=================\nLEADER AGENDAS\n=================")
   for agenda_id, agenda in leader_agendas.items():
     # Convert leader id to human-readable name using mapping
-    print(f"\n{agent_id_to_name.get(agenda_id, agenda_id)}'s Agenda:")
+    print(
+        f"\n{agent_id_to_name.get(agenda_id, agenda_id)}'s"
+        " Agenda:\n=================="
+    )
     pid = agent_name_to_id.get(agenda_id, agenda_id)
     print(
         f"SVO Angle: {leader_candidates[pid].svo_angle}, SVO Type:"
@@ -120,6 +116,16 @@ def perform_election(
     print(agenda)
   # In case the voters decide not to vote.
   leader_agendas["none"] = "No leader agenda, use your best judgement."
+  # Store the leader agendas in the public memories.
+  leader_announcement = (
+      f"Newly elected leader {winner}'s round {curr_round} agenda:"
+      f" {leader_agendas[winner]}"
+  )
+  leaders_lib.make_public_leader_memories(
+      all_personas=personas,
+      leader_announcement=leader_announcement,
+      current_time=current_time,
+  )
   return winner, votes, leader_agendas
 
 
@@ -139,8 +145,7 @@ def run(
     disinformation = cfg.env.disinformation
   else:
     disinformation = False
-  print(cfg.env)
-  print(f"Allow disinformation: {disinformation}")
+  print(f"DISINFORMATION FLAG: {disinformation}")
 
   # Create a consolidated log file
   consolidated_log_path = os.path.join(
@@ -292,6 +297,7 @@ def run(
       leader_candidates,
       current_time,
       wrapper,
+      curr_round=curr_round,
       agent_id_to_name=agent_id_to_name,
       agent_name_to_id=agent_name_to_id,
       disinfo=disinformation,
@@ -323,13 +329,90 @@ def run(
   leader_harvest_report = None
 
   # MAIN SIM LOOP.
+  last_location = None
   while True:
+
+    # DETECT CONVERSATION START AND MAKE REPORT.
+    if obs.current_location == "restaurant" and last_location == "lake":
+      print(
+          f"ROUND {curr_round}: DISCUSSION PHASE\n=========================\n"
+      )
+      leader_harvest_report = leaders_lib.make_leader_report(
+          personas=personas,
+          leader_candidates=leader_candidates,
+          current_time=current_time,
+          wrapper=wrapper,
+          disinformation=disinformation,
+          agenda=agenda,
+          curr_round=curr_round,
+          winner_id=agent_name_to_id[winner],
+          round_harvest_stats=round_harvest_stats[curr_round],
+      )
+      # Store in the public memories.
+      announcement = (
+          f"{winner}'s ROUND {curr_round} REPORT: {leader_harvest_report}"
+      )
+      leaders_lib.make_public_leader_memories(
+          all_personas=personas,
+          leader_announcement=announcement,
+          current_time=current_time,
+      )
+
+    # Fetch the current agent.
     agent = personas[agent_id]
+
     # Set the current agenda and report.
     agent.update_agenda(agenda)
     agent.update_harvest_report(leader_harvest_report)
     agent.update_curr_leader_name(winner)
     action = agent.loop(obs)
+
+    # Trigger another election?
+    if curr_round != env.num_round:
+      curr_round = env.num_round
+      current_time = datetime.datetime.now()
+      # Run election.
+      winner, votes, leader_agendas = perform_election(
+          personas,
+          leader_candidates,
+          current_time,
+          wrapper,
+          curr_round=curr_round,
+          agent_id_to_name=agent_id_to_name,
+          agent_name_to_id=agent_name_to_id,
+          # current_location=obs.current_location,
+          last_winning_agenda=agenda,
+          harvest_report=leader_harvest_report,
+          harvest_stats=round_harvest_stats[curr_round-1],
+          disinfo=disinformation,
+          # debug=debug,
+      )
+
+      agenda = leader_agendas[winner]
+      election_results[curr_round] = {
+          "round": curr_round,
+          "winner": winner,
+          "agendas": leader_agendas,
+          "votes": votes,
+          # Use the harvest stats from the last round.
+          "harvest_stats": round_harvest_stats[curr_round-1],
+          "num_resources": env.internal_global_state["resource_in_pool"],
+      }
+      print(f"\nROUND {curr_round} ELECTION WINNER: {winner}")
+      log_to_file("election", election_results[curr_round])
+      logger.log_game({
+          "round": curr_round,
+          "election_winner": winner,
+          "election_leader_agendas": leader_agendas,
+          "election_votes": votes,
+          # Use the harvest stats from the last round.
+          "harvest_stats": round_harvest_stats[curr_round-1],
+          "num_resources": env.internal_global_state["resource_in_pool"],
+      })
+
+    last_location = obs.current_location
+
+    # Samaple a new action.
     agent_id, obs, _, termination = env.step(action)
 
     # Check for harvest actions.
@@ -352,67 +435,6 @@ def run(
     if np.any(list(termination.values())):
       logger.log_game({"num_resource": obs.current_resource_num}, last_log=True)
       break
-
-    # Trigger another election?
-    if curr_round != env.num_round:
-      curr_round = env.num_round
-      current_time = datetime.datetime.now()
-      # Run election.
-      winner, votes, leader_agendas = perform_election(
-          personas,
-          leader_candidates,
-          current_time,
-          wrapper,
-          agent_id_to_name=agent_id_to_name,
-          agent_name_to_id=agent_name_to_id,
-          # current_location=obs.current_location,
-          last_winning_agenda=agenda,
-          harvest_report=leader_harvest_report,
-          harvest_stats=round_harvest_stats[curr_round-1],
-          disinfo=disinformation,
-          # debug=debug,
-      )
-      # Update the harvest report for the leader.
-      if curr_round-1 in round_harvest_stats:
-        leader_harvest_report = leaders_lib.make_harvest_report(
-            personas, round_harvest_stats[curr_round-1])
-      if disinformation:
-        # Allow the leader modify the harvest report.
-        print(
-            f"ROUND {curr_round} TRUE HARVEST REPORT:\n{leader_harvest_report}"
-        )
-        leader_harvest_report = leaders_lib.prompt_harvest_report(
-            wrapper,
-            personas[winner],
-            true_report=leader_harvest_report,
-            init_retrieved_memory=get_memories(personas[winner]),
-            svo_angle=leader_candidates[winner].svo_angle,
-            agenda=agenda,
-            # debug=debug,
-        )
-      print(f"ROUND {curr_round} HARVEST REPORT:\n{leader_harvest_report}")
-
-      agenda = leader_agendas[winner]
-      election_results[curr_round] = {
-          "round": curr_round,
-          "winner": winner,
-          "agendas": leader_agendas,
-          "votes": votes,
-          # Use the harvest stats from the last round.
-          "harvest_stats": round_harvest_stats[curr_round-1],
-          "num_resources": env.internal_global_state["resource_in_pool"],
-      }
-      print(f"\nRound {curr_round} Election Winner: {winner}")
-      log_to_file("election", election_results[curr_round])
-      logger.log_game({
-          "round": curr_round,
-          "election_winner": winner,
-          "election_leader_agendas": leader_agendas,
-          "election_votes": votes,
-          # Use the harvest stats from the last round.
-          "harvest_stats": round_harvest_stats[curr_round-1],
-          "num_resources": env.internal_global_state["resource_in_pool"],
-      })
 
   # Final harvest report.  Only used for logging.
   leader_harvest_report = leaders_lib.make_harvest_report(

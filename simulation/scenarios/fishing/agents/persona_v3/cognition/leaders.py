@@ -8,7 +8,9 @@ from pathfinder import assistant
 from pathfinder import user
 from simulation.persona import PersonaAgent
 from simulation.persona import SVOPersonaType
+from simulation.persona.common import PersonaEvent
 
+from simulation.scenarios.common.environment.concurrent_env import get_expiration_next_month
 from simulation.scenarios.fishing.agents.persona_v3.cognition.utils import get_sytem_prompt
 from simulation.scenarios.fishing.agents.persona_v3.cognition.utils import location_time_info
 from simulation.scenarios.fishing.agents.persona_v3.cognition.utils import memory_prompt
@@ -180,44 +182,47 @@ def prompt_harvest_report(
     debug: bool = False,
 ) -> str:
   """Harvest report prompt."""
-  lm = model.start_chain(init_persona.agent_id, "leader_agenda", "get_agenda")
+  lm = model.start_chain(init_persona.agent_id, "leader_report", "get_report")
   svo_angle_prompt_str = svo_angle_prompt(svo_angle)
-  lm += f"The harvest statistics are the following:\n'{true_report}'\n"
-  lm += (
-      f"MEMORIES:\n{memory_prompt(init_persona.identity, init_retrieved_memory)}\n"
-  )
-  lm += SVO_LEADER_TASK + svo_angle_prompt_str  # SVO Prompt.
-  lm += f"YOUR AGENDA:\n{agenda}\n"
-  lm += (
-      "Your task is to Generate a harvest report from the harvest statistics.\n"
-  )
-  lm += reasoning_steps_prompt()
-  lm += (
-      'Output format:\n"The harvest report is as follows: [fill in your report'
-      ' here] END\n"'
-  )
-  if debug:
-    print(f"\nREPORT PROMPT:\n{lm._current_prompt()}")  # pylint: disable=protected-access
+  with user():
+    lm += f"The harvest statistics are the following:\n{true_report}"
+    lm += (
+        f"MEMORIES:\n{memory_prompt(init_persona.identity, init_retrieved_memory)}\n"
+    )
+    lm += SVO_LEADER_TASK + svo_angle_prompt_str  # SVO Prompt.
+    lm += f"YOUR AGENDA:\n{agenda}\n"
+    lm += (
+        "Your task is to Generate a harvest report from the harvest"
+        " statistics.\n"
+    )
+    lm += reasoning_steps_prompt()
+    lm += (
+        'Output format:\n"The harvest report is as follows: [fill in your'
+        ' report here] END\n"'
+    )
+    if debug:
+      print(f"\nREPORT PROMPT:\n{lm._current_prompt()}")  # pylint: disable=protected-access
 
   with assistant():
     lm = model.gen(
         lm,
-        "agenda",
+        "report",
         stop_regex=r"END",
         save_stop_text=False,
     )
     if debug:
       print(f"\nRESPONSE:\n{lm['agenda']}\n")
-    agenda = lm["agenda"].strip()
-    if agenda and agenda[0] == '"' and agenda[-1] == '"':
-      agenda = agenda[1:-1]
-  return true_report
+    report = lm["report"].strip()
+    if report and report[0] == '"' and report[-1] == '"':
+      report = report[1:-1]
+  model.end_chain(init_persona.agent_id, lm)
+  return report
 
 
 def make_harvest_report(
     personas: dict[str, PersonaAgent],
     last_rounds_harvest_stats: dict[str, int],
-) -> tuple[str, str]:
+) -> str:
   """Factual Leader newsletter prompt."""
   report = "Last round's fishing stats:\n\n"
   for _, persona in personas.items():
@@ -227,6 +232,108 @@ def make_harvest_report(
         " fish\n"
     )
   return report
+
+
+def make_private_leader_memories(
+    leader: PersonaAgent,
+    current_time: datetime,
+    report: str,
+):
+  """Store leader single persona related information."""
+  report_event = PersonaEvent(
+      report,
+      created=current_time,
+      expiration=get_expiration_next_month(current_time),
+      always_include=True,
+  )
+  leader.store.store_event(report_event)
+
+
+def make_public_leader_memories(
+    all_personas: dict[str, PersonaAgent],
+    leader_announcement: str,
+    current_time: datetime,
+):
+  """Iterate through all personas and store leader's agenda and report.
+
+  Args:
+    all_personas: All personas in the community.
+    leader_announcement: The leader's agenda.
+    current_time: The current time.
+  """
+  leader_event = PersonaEvent(
+      leader_announcement,
+      created=current_time,
+      expiration=get_expiration_next_month(current_time),
+      always_include=True,
+  )
+  for _, persona in all_personas.items():
+    persona.store.store_event(leader_event)
+
+
+def get_memories(persona: PersonaAgent) -> list[str]:
+  """Get memories for a persona."""
+  retireved_memory = []
+  try:
+    retireved_memory = persona.retrieve.retrieve(
+        ["lake", "restaurant"], 10)
+  except ValueError as e:
+    print(f"Couldn't retrieve memories for {persona.identity.name}: {e}")
+  return retireved_memory
+
+
+def make_leader_report(
+    personas: dict[str, PersonaAgent],
+    leader_candidates: dict[str, PersonaAgent],
+    current_time: datetime,
+    wrapper: ModelWandbWrapper,
+    disinformation: bool,
+    agenda: str,
+    curr_round: int,
+    winner_id: str,
+    round_harvest_stats: dict[str, int],
+):
+  """Update the harvest report for the leader.
+  
+  Args:
+    personas: All personas in the community.
+    leader_candidates: The leader candidates.
+    current_time: The current time.
+    wrapper: The model wrapper.
+    disinformation: Whether to allow disinformation.
+    agenda: The leader's agenda.
+    curr_round: The current round.
+    winner_id: The election winner.
+    round_harvest_stats: The harvest stats for the current round.
+  
+  Returns:
+    The leader's harvest report.
+  """
+  leader_harvest_report = make_harvest_report(
+      personas, round_harvest_stats
+  )
+  # Allow the leader modify the harvest report.
+  if disinformation:
+    make_private_leader_memories(
+        leader=leader_candidates[winner_id],
+        current_time=current_time,
+        report=leader_harvest_report,
+    )
+    print(
+        f"ROUND {curr_round} TRUE HARVEST"
+        f" REPORT:\n{leader_harvest_report}"
+    )
+    leader_harvest_report = prompt_harvest_report(
+        model=wrapper,
+        init_persona=personas[winner_id],
+        true_report=leader_harvest_report,
+        init_retrieved_memory=get_memories(personas[winner_id]),
+        svo_angle=leader_candidates[winner_id].svo_angle,
+        agenda=agenda,
+        # debug=debug
+    )
+  print(f"ROUND {curr_round} HARVEST REPORT:\n{leader_harvest_report}")
+  return leader_harvest_report
 
 
 def sample_leader_svos(

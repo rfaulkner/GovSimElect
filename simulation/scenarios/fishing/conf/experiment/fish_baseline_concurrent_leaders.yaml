@@ -25,7 +25,7 @@ env:
   poupulation_change_after_round: double_100_cap
   observation_other_agents_harvesting: true # true, false
   language_nature: unconstrained #none, unconstrained
-  num_agents: 12  # Updated from 5 to 12 (4 leaders + 9 followers)
+  num_agents: 8  # Updated from 5 to 12 (4 leaders + 9 followers)
   disinformation: true # (false, true) whether to allow agents to inject disinformation.
   harvesting_order: concurrent # random-sequential, concurrent
   assign_resource_strategy: stochastic # proportional, stochastic

@@ -120,8 +120,12 @@ class FishingPersona(PersonaAgent):
     if obs.current_location == "lake" and obs.phase == "lake":
       # Stage 1. Pond situation / Stage 2. Fishermen’s decisions
       retrieved_memory = self.retrieve.retrieve([obs.current_location], 10)
+      str_memory = [
+          str(memory) for memory in retrieved_memory
+      ]
+      str_memory = "\n".join(str_memory)
       if debug:
-        print(f"MEMORIES:\n{retrieved_memory}")
+        print(f"MEMORIES {self.identity.name}:\n{str_memory}")
       if obs.current_resource_num > 0:
         num_resource, html_interactions = (
             self.act.choose_how_many_fish_to_catch(
@@ -192,8 +196,6 @@ class FishingPersona(PersonaAgent):
           stats={"conversation_resource_limit": resource_limit},
           html_interactions=html_interactions,
       )
-      if debug:
-        print(f"CONVERSE: {self.identity.name}.")
     elif obs.current_location == "home":
       # Stage 3. Social Interaction b)
       # TODO How what should we reflect, what is the initial focal points?
