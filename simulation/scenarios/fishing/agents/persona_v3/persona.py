@@ -48,6 +48,7 @@ class FishingPersona(PersonaAgent):
       svo_type: SVOPersonaType = SVOPersonaType.NONE,
       disinfo: bool = False,
       harvest_report: str | None = None,
+      curr_leader_name: str | None = None,
   ) -> None:
     super().__init__(
         cfg,
@@ -71,6 +72,7 @@ class FishingPersona(PersonaAgent):
     self._svo_type = svo_type
     self._disinfo = disinfo
     self._harvest_report = harvest_report
+    self._curr_leader_name = curr_leader_name
 
   def update_agenda(self, agenda: str) -> None:
     self._agenda = agenda
@@ -80,6 +82,9 @@ class FishingPersona(PersonaAgent):
 
   def update_overuse_threshold(self, overuse_threshold: float) -> None:
     self._overuse_threshold = overuse_threshold
+  
+  def update_curr_leader_name(self, curr_leader_name: str) -> None:
+    self._curr_leader_name = curr_leader_name
 
   @property
   def agenda(self) -> str:
@@ -101,6 +106,10 @@ class FishingPersona(PersonaAgent):
   def svo_type(self) -> SVOPersonaType:
     return self._svo_type
 
+  @property
+  def curr_leader_name(self) -> str:
+    return self._curr_leader_name
+
   def loop(self, obs: HarvestingObs, debug: bool = True) -> PersonaAction:
     self.current_time = obs.current_time  # update current time
 
@@ -112,7 +121,7 @@ class FishingPersona(PersonaAgent):
       # Stage 1. Pond situation / Stage 2. Fishermen’s decisions
       retrieved_memory = self.retrieve.retrieve([obs.current_location], 10)
       if debug:
-        print(f"MEMORIES: {retrieved_memory}")
+        print(f"MEMORIES:\n{retrieved_memory}")
       if obs.current_resource_num > 0:
         num_resource, html_interactions = (
             self.act.choose_how_many_fish_to_catch(
@@ -172,6 +181,7 @@ class FishingPersona(PersonaAgent):
           obs.agent_resource_num,
           mayoral_agenda=self._agenda,
           harvest_report=self._harvest_report,
+          curr_leader_name=self._curr_leader_name,
           debug=debug,
       )
       action = PersonaActionChat(

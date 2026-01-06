@@ -35,13 +35,16 @@ class FishingConverseComponent(ConverseComponent):
       agent_resource_num: dict[str, int],
       mayoral_agenda: str | None = None,
       harvest_report: str | None = None,
+      curr_leader_name: str | None = None,
       debug: bool = False,
   ) -> tuple[list[tuple[str, str]], str]:
     current_conversation: list[tuple[PersonaIdentity, str]] = []
 
     html_interactions = []
     # TODO(rfaulk): Assign this persona based on the last vote.
-    current_leader = PersonaIdentity("framework", "Leader")
+    current_leader = PersonaIdentity(
+        "framework", f"Leader ({curr_leader_name})"
+    )
 
     # Inject fake conversation about how many fish each person caught
     if (
@@ -67,14 +70,6 @@ class FishingConverseComponent(ConverseComponent):
         self.cfg.inject_resource_observation
         and self.cfg.inject_resource_observation_strategy == "manager"
     ):
-      # prepare report from pov of the manager
-      # report = ""
-      # for persona in target_personas:
-      #   p = self.other_personas[persona.name]
-      #   report += (
-      #       f"{p.identity.name} caught {agent_resource_num[p.agent_id]} tons of"
-      #       " fish. "
-      #   )
       current_conversation.append(
           (
               current_leader,

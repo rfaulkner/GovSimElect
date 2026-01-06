@@ -53,7 +53,8 @@ def perform_election(
     last_winning_agenda: str | None = None,
     harvest_report: str | None = None,
     harvest_stats: str | None = None,
-):
+    disinfo: bool = False,
+) -> tuple[str, dict[str, int], dict[str, str]]:
   """Runs an election among the leaders."""
   leader_agendas = {}
   # Get updated leader agendas using the leader prompt functions
@@ -69,7 +70,7 @@ def perform_election(
         last_winning_agenda=last_winning_agenda,
         harvest_report=harvest_report,
         harvest_stats=harvest_stats,
-        use_disinfo=False,  # TODO(rfaulk): Add disinfo options to the election.
+        use_disinfo=disinfo,
     )
     # print(f"\nAGENDA: {leader_candidates[pid].identity.name} {agenda}")
     leader_agendas[leader.identity.name] = agenda
@@ -130,9 +131,16 @@ def run(
     embedding_model: EmbeddingModel,
     experiment_storage: str,
 ):
-  """Run the simulatiuon."""
+  """Run the simulation."""
   if not os.path.exists(experiment_storage):
     os.makedirs(experiment_storage)
+
+  if hasattr(cfg.env, "disinformation"):
+    disinformation = cfg.env.disinformation
+  else:
+    disinformation = False
+  print(cfg.env)
+  print(f"Allow disinformation: {disinformation}")
 
   # Create a consolidated log file
   consolidated_log_path = os.path.join(
@@ -286,6 +294,7 @@ def run(
       wrapper,
       agent_id_to_name=agent_id_to_name,
       agent_name_to_id=agent_name_to_id,
+      disinfo=disinformation,
   )
   election_results[0] = {
       "round": 0,
@@ -319,6 +328,7 @@ def run(
     # Set the current agenda and report.
     agent.update_agenda(agenda)
     agent.update_harvest_report(leader_harvest_report)
+    agent.update_curr_leader_name(winner)
     action = agent.loop(obs)
     agent_id, obs, _, termination = env.step(action)
 
@@ -347,12 +357,7 @@ def run(
     if curr_round != env.num_round:
       curr_round = env.num_round
       current_time = datetime.datetime.now()
-      # TODO(rfaulk): Add disinfo to the report.
-      if curr_round-1 in round_harvest_stats:
-        leader_harvest_report = leaders_lib.make_harvest_report(
-            personas, round_harvest_stats[curr_round-1])
-      print(f"ROUND {curr_round} HARVEST REPORT:\n{leader_harvest_report}")
-      # Update the harvest report for the leader.
+      # Run election.
       winner, votes, leader_agendas = perform_election(
           personas,
           leader_candidates,
@@ -362,10 +367,31 @@ def run(
           agent_name_to_id=agent_name_to_id,
           # current_location=obs.current_location,
           last_winning_agenda=agenda,
-          # TODO(rfaulk): When leaders can inject their own reports nodify this.
           harvest_report=leader_harvest_report,
-          # harvest_stats=round_harvest_stats[curr_round-1],
+          harvest_stats=round_harvest_stats[curr_round-1],
+          disinfo=disinformation,
+          # debug=debug,
       )
+      # Update the harvest report for the leader.
+      if curr_round-1 in round_harvest_stats:
+        leader_harvest_report = leaders_lib.make_harvest_report(
+            personas, round_harvest_stats[curr_round-1])
+      if disinformation:
+        # Allow the leader modify the harvest report.
+        print(
+            f"ROUND {curr_round} TRUE HARVEST REPORT:\n{leader_harvest_report}"
+        )
+        leader_harvest_report = leaders_lib.prompt_harvest_report(
+            wrapper,
+            personas[winner],
+            true_report=leader_harvest_report,
+            init_retrieved_memory=get_memories(personas[winner]),
+            svo_angle=leader_candidates[winner].svo_angle,
+            agenda=agenda,
+            # debug=debug,
+        )
+      print(f"ROUND {curr_round} HARVEST REPORT:\n{leader_harvest_report}")
+
       agenda = leader_agendas[winner]
       election_results[curr_round] = {
           "round": curr_round,
@@ -388,10 +414,10 @@ def run(
           "num_resources": env.internal_global_state["resource_in_pool"],
       })
 
-  # Final harvest report.
+  # Final harvest report.  Only used for logging.
   leader_harvest_report = leaders_lib.make_harvest_report(
             personas, round_harvest_stats[curr_round])
-  print(f"\FINAL HARVEST REPORT - ROUND {curr_round}:\n{leader_harvest_report}")
+  print(f"FINAL HARVEST REPORT - ROUND {curr_round}:\n{leader_harvest_report}")
 
   log_to_file("harvest", round_harvest_stats)
   log_to_file("sim-end", None)

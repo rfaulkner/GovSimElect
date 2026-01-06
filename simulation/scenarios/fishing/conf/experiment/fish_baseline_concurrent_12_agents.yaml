@@ -24,6 +24,7 @@ env:
   observation_other_agents_harvesting: true # true, false 
   language_nature: unconstrained #none, unconstrained
   num_agents: 12
+  disniformatioon: true # (false, true) whether to allow agents to inject disinformation.
   harvesting_order: concurrent # random-sequential, concurrent
   assign_resource_strategy: stochastic # proportional, stochastic
   inject_universalization: false
