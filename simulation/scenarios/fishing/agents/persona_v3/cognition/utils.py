@@ -143,24 +143,54 @@ def get_sytem_prompt_v1(persona):
 
 
 def get_sytem_prompt_v3(persona):
-  text = (
+  """System prompt for v3."""
+
+  if persona.env:
+    min_regen = persona.env.regen_min_range
+    max_regen = persona.env.regen_max_range
+  else:
+    min_regen = 2.0
+    max_regen = 2.0
+
+  if min_regen != max_regen:
+    text_regen_rate = (
+        " At the end of the month, the remaining fish will reproduce and the"
+        " population will increase.  The regeneration factor of increase is"
+        f" sampled uniformly between {min_regen} and {max_regen} for each"
+        " month, up to the carrying capacity.."
+    )
+  else:
+    text_regen_rate = (
+        " At the end of the month, the remaining fish will reproduce and"
+        f" increase by a regeneration factor of {min_regen}, up to the carrying"
+        " capacity."
+    )
+
+  text_pre = (
       f"You are {persona.name}, a fisherman, and you fish every month in a lake"
       " along with other fishermen. The lake has a carrying capacity of 100"
       " tons of fish. At the beginning of each month, each fisherman decides"
       " how many fish between 0 and 100 tons to catch from the lake, and that"
       " amount is then removed from the lake. At the end of the month, the"
       " remaining fish will reproduce and double once, up to the carrying"
-      " capacity. For every ton of fish caught, a fisherman earns one thousand"
-      " dollars. Each fisherman's goal is to optimize his income in the long"
-      " run over many months. At the end of each month, the number of fish"
-      " caught by each fisherman will be revealed, and the fishermen will have"
-      " the opportunity to communicate with each other. They can use this as"
-      " an opportunity to negotiate and persuade others to influence their"
+      " capacity."
+  )
+
+  text_post = (
+      " For every ton of fish caught, a fisherman earns one thousand dollars."
+      " Each fisherman's goal is to optimize his income in the long run over"
+      " many months. At the end of each month, the number of fish caught by"
+      " each fisherman will be revealed, and the fishermen will have the"
+      " opportunity to communicate with each other. They can use this as an"
+      " opportunity to negotiate and persuade others to influence their"
       " behavior in the next month. For example, if there are 90 tons of fish"
       " at the beginning of the month and the fishermen catch a total of 30"
-      " fish, there will be 60 tons of fish left at the end of the month"
-      " before reproduction, and 100 tons after reproduction."
+      " fish, given a regeneration factor of 2.0, there will be 60 tons of fish"
+      " left at the end of the month before reproduction, and 100 tons after"
+      " reproduction."
   )
+
+  text = text_pre + text_regen_rate + text_post
 
   if persona.goals != "":
     text += persona.goals

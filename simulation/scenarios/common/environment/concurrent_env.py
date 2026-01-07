@@ -1,21 +1,21 @@
+"""Concurrent environment."""
+
 from datetime import datetime, timedelta
-import math
 
 import numpy as np
-from omegaconf import DictConfig, OmegaConf
+import omegaconf
 import pandas as pd
 from pettingzoo.utils import agent_selector
 from simulation.persona.common import (
     PersonaAction,
     PersonaActionChat,
     PersonaActionHarvesting,
+    PersonaEnvironment,
     PersonaEvent,
     PersonaIdentity,
 )
 
 from .common import HarvestingObs
-
-DEFAULT_SUSTAINABILITY_THRESHOLD = 10
 
 
 def get_reflection_day(current_date):
@@ -34,24 +34,27 @@ def get_expiration_next_month(current_date):
 
 
 class ConcurrentEnv:
+  """Base class for concurrent environments."""
 
   def __init__(
       self,
-      cfg: DictConfig,
+      cfg: omegaconf.DictConfig,
       experiment_storage: str,
       map_id_to_name: dict[str, str],
-      num_agents: int = 5,
+      # Default is to double.
+      regen_factor_range: tuple[float, float] = (2.0, 2.0),
   ) -> None:
     self.cfg = cfg
     self.experiment_storage = experiment_storage
 
-    self.possible_agents = [f"persona_{i}" for i in range(num_agents)]
+    self.possible_agents = [f"persona_{i}" for i in range(cfg.num_agents)]
     self.agent_name_mapping = dict(
         zip(self.possible_agents, list(range(len(self.possible_agents))))
     )
     self.agent_id_to_name = map_id_to_name
 
     self.POOL_LOCATION = "pool"
+    self._regen_factor_range = regen_factor_range
 
   ### Prompt text
 
@@ -205,11 +208,23 @@ class ConcurrentEnv:
     self.rewards[agent] = 0.0
     self.terminations[agent] = False
 
+  def _set_sustainability_threshold(self):
+    regen_factor = self.internal_global_state["regen_factor"]
+    sustainability_threshold = (
+        (regen_factor - 1)
+        * self.internal_global_state["resource_in_pool"]
+        / (self.internal_global_state["num_agents"] * regen_factor)
+    )
+    sustainability_threshold = max(sustainability_threshold, 0)
+    sustainability_threshold = int(sustainability_threshold)
+    self.internal_global_state["sustainability_threshold"] = (
+        sustainability_threshold
+    )
+
   def reset(
       self,
       seed=None,
       options=None,
-      sustainability_threshold: int = DEFAULT_SUSTAINABILITY_THRESHOLD,
   ) -> tuple[str, HarvestingObs]:
     self.random = np.random.RandomState(seed)
 
@@ -222,21 +237,25 @@ class ConcurrentEnv:
     self.rewards = {}
     self.terminations = {}
 
+    # Initialise the regen factor.
+    init_regen_factor = 2.0
+
     # Environment specific
     self.internal_global_state = {
         "num_agents": float(self.cfg.num_agents),
         "resource_in_pool": self.cfg.initial_resource_in_pool,
         "resource_before_harvesting": self.cfg.initial_resource_in_pool,
-        "sustainability_threshold": (
-            sustainability_threshold
-        ),
+        "sustainability_threshold": None,
         "collected_resource": {},
         "wanted_resource": {},
         "last_collected_resource": {},
         "next_location": {},
         "next_time": {},
         "action": {},
+        "regen_factor": init_regen_factor,  # Initialise to 2.0 (doubling).
     }
+    self._set_sustainability_threshold()
+
     for agent in self.agents:
       self._init_agent(agent)
 
@@ -414,6 +433,10 @@ class ConcurrentEnv:
     # A possible idea here is to probe the agent for some reflection / thoughts
     # NOTE do we need to register something here?
 
+  @property
+  def regen_factor(self) -> int:
+    return self.internal_global_state["regen_factor"]
+
   def step(
       self, action: PersonaAction
   ) -> tuple[str, HarvestingObs, dict, dict]:
@@ -449,18 +472,20 @@ class ConcurrentEnv:
             )
             for agent in self.agents
         }
-
-        self.internal_global_state["resource_in_pool"] = min(
+        # Apply Regeneration to the pool.  Round of to int.
+        self.internal_global_state["resource_in_pool"] = int(min(
             self.cfg.initial_resource_in_pool,
-            self.internal_global_state["resource_in_pool"] * 2,
-        )  # Double the fish in the lake, but cap at 100
+            self.internal_global_state["resource_in_pool"]
+            * self.internal_global_state["regen_factor"],
+        ))
         self.internal_global_state["resource_before_harvesting"] = (
             self.internal_global_state["resource_in_pool"]
         )
-        self.internal_global_state["sustainability_threshold"] = int(
-            (self.internal_global_state["resource_in_pool"] // 2)
-            // self.internal_global_state["num_agents"]
+        # Sample the next regeneration factor.
+        self.internal_global_state["regen_factor"] = self.random.uniform(
+            self._regen_factor_range[0], self._regen_factor_range[1]
         )
+        self._set_sustainability_threshold()
         if self.cfg.harvesting_order == "random-sequential":
           agents = list(np.random.permutation(self.agents))
           self._agent_selector = agent_selector(agents)

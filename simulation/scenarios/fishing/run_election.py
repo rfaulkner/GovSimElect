@@ -12,6 +12,7 @@ from simulation.persona import EmbeddingModel
 from simulation.persona import PersonaAgent
 from simulation.persona import SVOPersonaType
 from simulation.persona.common import PersonaActionHarvesting
+from simulation.persona.common import PersonaEnvironment
 from simulation.persona.common import PersonaEvent
 from simulation.persona.common import PersonaIdentity
 from simulation.utils import ModelWandbWrapper
@@ -38,6 +39,7 @@ def perform_election(
     harvest_report: str | None = None,
     harvest_stats: str | None = None,
     disinfo: bool = False,
+    debug: bool = False,
 ) -> tuple[str, dict[str, int], dict[str, str]]:
   """Runs an election among the leaders."""
   print(f"ROUND {curr_round}: ELECTION\n==================\n")
@@ -58,7 +60,7 @@ def perform_election(
         use_disinfo=disinfo,
     )
     leader_agendas[leader.identity.name] = agenda
-  votes = {}
+  votes = {} 
   for persona_id in personas:
     # Only non-leader personas cast votes
     if persona_id not in leader_candidates:
@@ -97,23 +99,24 @@ def perform_election(
   keys = [key for key, value in votes.items() if value == winner]
   winner = random.choice(keys)
   # LOGGING.
-  print("\n=================\nELECTION RESULTS\n=================")
-  for candidate, vote_count in votes.items():
-    print(f"{candidate}: {vote_count} votes")
-  print(f"\nWINNER: {winner}")
-  print("\n=================\nLEADER AGENDAS\n=================")
-  for agenda_id, agenda in leader_agendas.items():
-    # Convert leader id to human-readable name using mapping
-    print(
-        f"\n{agent_id_to_name.get(agenda_id, agenda_id)}'s"
-        " Agenda:\n=================="
-    )
-    pid = agent_name_to_id.get(agenda_id, agenda_id)
-    print(
-        f"SVO Angle: {leader_candidates[pid].svo_angle}, SVO Type:"
-        f" {leader_candidates[pid].svo_type}\n"
-    )
-    print(agenda)
+  if debug:
+    print("\n=================\nELECTION RESULTS\n=================")
+    for candidate, vote_count in votes.items():
+      print(f"{candidate}: {vote_count} votes")
+    print(f"\nROUND {curr_round} WINNER: {winner}")
+    print("\n=================\nLEADER AGENDAS\n=================")
+    for agenda_id, agenda in leader_agendas.items():
+      # Convert leader id to human-readable name using mapping
+      print(
+          f"\n{agent_id_to_name.get(agenda_id, agenda_id)}'s"
+          " Agenda:\n=================="
+      )
+      pid = agent_name_to_id.get(agenda_id, agenda_id)
+      print(
+          f"SVO Angle: {leader_candidates[pid].svo_angle}, SVO Type:"
+          f" {leader_candidates[pid].svo_type}\n"
+      )
+      print(agenda)
   # In case the voters decide not to vote.
   leader_agendas["none"] = "No leader agenda, use your best judgement."
   # Store the leader agendas in the public memories.
@@ -223,7 +226,12 @@ def run(
   num_personas = cfg.personas.num
   identities = {
       f"persona_{i}": PersonaIdentity(
-          agent_id=f"persona_{i}", **cfg.personas[f"persona_{i}"]
+          agent_id=f"persona_{i}", **cfg.personas[f"persona_{i}"],
+          # Inject some environment knowledge into the persona.
+          environment=PersonaEnvironment(
+              regen_min_range=cfg.env.regen_factor_range[0],
+              regen_max_range=cfg.env.regen_factor_range[1]
+          )
       )
       for i in range(num_personas)
   }
@@ -280,27 +288,24 @@ def run(
       cfg.env,
       experiment_storage,
       agent_id_to_name,
-      num_agents=cfg.env.num_agents)
+      regen_factor_range=cfg.env.regen_factor_range,
+    )
+
   # Initialize the environment.
-  sustainability_threshold = cfg.env.initial_resource_in_pool // (
-      2 * cfg.env.num_agents
-  )
-  agent_id, obs = env.reset(
-      sustainability_threshold=sustainability_threshold
-  )
+  agent_id, obs = env.reset()
   curr_round = env.num_round
 
   # Run the first election
-  current_time = datetime.datetime.now()
   winner, votes, leader_agendas = perform_election(
       personas,
       leader_candidates,
-      current_time,
+      obs.current_time,
       wrapper,
       curr_round=curr_round,
       agent_id_to_name=agent_id_to_name,
       agent_name_to_id=agent_name_to_id,
       disinfo=disinformation,
+      debug=cfg.debug,
   )
   election_results[0] = {
       "round": 0,
@@ -310,7 +315,6 @@ def run(
       "harvest_stats": None,
       "num_resources": env.internal_global_state["resource_in_pool"],
   }
-  print(f"\nRound {curr_round} Election Winner: {winner}")
   log_to_file("election", election_results[0])
   logger.log_game({
       "round": 0,
@@ -334,19 +338,22 @@ def run(
 
     # DETECT CONVERSATION START AND MAKE REPORT.
     if obs.current_location == "restaurant" and last_location == "lake":
-      print(
-          f"ROUND {curr_round}: DISCUSSION PHASE\n=========================\n"
-      )
+      if cfg.debug:
+        print(
+            f"ROUND {curr_round}: DISCUSSION PHASE\n=========================\n"
+        )
       leader_harvest_report = leaders_lib.make_leader_report(
           personas=personas,
           leader_candidates=leader_candidates,
-          current_time=current_time,
+          current_time=obs.current_time,
           wrapper=wrapper,
           disinformation=disinformation,
           agenda=agenda,
           curr_round=curr_round,
           winner_id=agent_name_to_id[winner],
           round_harvest_stats=round_harvest_stats[curr_round],
+          regen_factor=env.internal_global_state["regen_factor"],
+          debug=cfg.debug,
       )
       # Store in the public memories.
       announcement = (
@@ -355,7 +362,7 @@ def run(
       leaders_lib.make_public_leader_memories(
           all_personas=personas,
           leader_announcement=announcement,
-          current_time=current_time,
+          current_time=obs.current_time,
       )
 
     # Fetch the current agent.
@@ -365,29 +372,26 @@ def run(
     agent.update_agenda(agenda)
     agent.update_harvest_report(leader_harvest_report)
     agent.update_curr_leader_name(winner)
-    action = agent.loop(obs)
+    action = agent.loop(obs, debug=cfg.debug)
 
     # Trigger another election?
     if curr_round != env.num_round:
       curr_round = env.num_round
-      current_time = datetime.datetime.now()
       # Run election.
       winner, votes, leader_agendas = perform_election(
           personas,
           leader_candidates,
-          current_time,
+          obs.current_time,
           wrapper,
           curr_round=curr_round,
           agent_id_to_name=agent_id_to_name,
           agent_name_to_id=agent_name_to_id,
-          # current_location=obs.current_location,
           last_winning_agenda=agenda,
           harvest_report=leader_harvest_report,
           harvest_stats=round_harvest_stats[curr_round-1],
           disinfo=disinformation,
-          # debug=debug,
+          debug=cfg.debug,
       )
-
       agenda = leader_agendas[winner]
       election_results[curr_round] = {
           "round": curr_round,
@@ -398,7 +402,6 @@ def run(
           "harvest_stats": round_harvest_stats[curr_round-1],
           "num_resources": env.internal_global_state["resource_in_pool"],
       }
-      print(f"\nROUND {curr_round} ELECTION WINNER: {winner}")
       log_to_file("election", election_results[curr_round])
       logger.log_game({
           "round": curr_round,
