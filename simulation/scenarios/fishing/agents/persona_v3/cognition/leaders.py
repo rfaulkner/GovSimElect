@@ -57,6 +57,7 @@ class LeaderPopulationType(enum.Enum):
   ONE_ALTRUISTIC = "one_altruistic"
   ONE_PROSOCIAL = "one_prosocial"
   ONE_INDIVIDUALISTIC = "one_individualistic"
+  NONE = "none"
 
 
 def sample_svo_angle(
@@ -405,6 +406,8 @@ def sample_leader_svos(
     svo_categories = [
         SVOPersonaType.INDIVIDUALISTIC,
     ]
+  elif leader_population_type == LeaderPopulationType.NONE:
+    svo_categories = []
   else:
     raise ValueError(
         f"Unknown leader population type: {leader_population_type}"
