@@ -1,5 +1,6 @@
 code_version: v7.0
 group_name: ''
+seed: 0
 
 llm: 
   path: TheBloke/Nous-Hermes-2-Mixtral-8x7B-DPO-GPTQ
@@ -8,11 +9,8 @@ llm:
   render: false
   temperature: 0.0
   top_p: 1.0
-  iter: 0
 
 mix_llm: [] # disable
-
-seed: 42
 debug: false
 
 # Ideally we would only need to change the following two lines to run a different experiments

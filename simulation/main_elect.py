@@ -26,19 +26,26 @@ from simulation.scenarios.fishing.run_election import run as run_scenario_fishin
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
   print(OmegaConf.to_yaml(cfg))
-  set_seed(cfg.seed)
+  set_seed(cfg.experiment.seed)
 
-  model = get_model(cfg.llm.path, cfg.llm.is_api, cfg.seed, cfg.llm.backend)
+  model = get_model(
+      cfg.llm.path, cfg.llm.is_api, cfg.experiment.seed, cfg.llm.backend
+  )
   logger = WandbLogger(
       cfg.experiment.name, OmegaConf.to_object(cfg), debug=cfg.debug
   )
-  run_name = logger.run_name if logger.run_name else f"{cfg.llm.path}_run_{cfg.llm.iter}"
+  run_name = (
+      logger.run_name
+      if logger.run_name
+      else f"{cfg.llm.path}_run_{cfg.experiment.seed}"
+  )
   if "gpt" in cfg.llm.path:
     run_name = os.path.join("gpt", run_name)
   experiment_storage = os.path.join(
       os.path.dirname(__file__),
       f"./results/{cfg.experiment.name}/{run_name}",
   )
+  print(f"Experiment storage: {experiment_storage}")
 
   wrapper = ModelWandbWrapper(
       model,
@@ -46,7 +53,7 @@ def main(cfg: DictConfig):
       wanbd_logger=logger,
       temperature=cfg.llm.temperature,
       top_p=cfg.llm.top_p,
-      seed=cfg.seed,
+      seed=cfg.experiment.seed,
       is_api=cfg.llm.is_api,
   )
   embedding_model = EmbeddingModel(device="cpu")
@@ -67,8 +74,9 @@ def main(cfg: DictConfig):
   if os.path.exists(f"{experiment_storage}/.hydra/"):
     shutil.rmtree(f"{experiment_storage}/.hydra/")
   shutil.copytree(f"{hydra_log_path}/.hydra/", f"{experiment_storage}/.hydra/")
-  shutil.copy(f"{hydra_log_path}/main_elect.log",
-              f"{experiment_storage}/main_elect.log")
+  shutil.copy(
+      f"{hydra_log_path}/main_elect.log", f"{experiment_storage}/main_elect.log"
+  )
   # shutil.rmtree(hydra_log_path)
 
   artifact = wandb.Artifact("hydra", type="log")

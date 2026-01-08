@@ -4,16 +4,19 @@
 #SBATCH --job-name=govsim_elect
 #SBATCH --output=slurm/output/%j_%x.out
 
-#SBATCH --time=0-5:00:00
+#SBATCH --time=0-1:00:00
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:l40s:4
+#SBATCH --gres=gpu:l40s:1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=40G
+#SBATCH --mem=50G
 
-# model_id="mistralai/Mistral-7B-Instruct-v0.2"
+model_id="mistralai/Mistral-7B-Instruct-v0.2"
 # model_id="meta-llama/Meta-Llama-3-70B-Instruct"
-model_id="meta-llama/Meta-Llama-3-8B-Instruct"
+# model_id="meta-llama/Meta-Llama-3-8B-Instruct"
+# model_id="Qwen/Qwen1.5-72B-Chat-GPTQ-Int4"
+# model_id="Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
+
 experiment="fish_baseline_concurrent_leaders"
 
 project_dir="/home/$USER/projects/aip-rgrosse/$USER/GovSimElect"
@@ -26,4 +29,4 @@ module load python/3.11.5 cuda/12.2 gcc arrow/21.0.0
 cd $project_dir
 source .venv/bin/activate
 
-python3 -m simulation.main_elect experiment=$experiment llm.path=$model_id llm.is_api=false
+python3 -m simulation.main_elect experiment=$experiment llm.path=$model_id llm.is_api=false experiment.seed=$1
