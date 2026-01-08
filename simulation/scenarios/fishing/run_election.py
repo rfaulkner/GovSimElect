@@ -60,44 +60,53 @@ def perform_election(
         use_disinfo=disinfo,
     )
     leader_agendas[leader.identity.name] = agenda
-  votes = {} 
-  for persona_id in personas:
-    # Only non-leader personas cast votes
-    if persona_id not in leader_candidates:
-      # Get memories.
-      retireved_memory = leaders_lib.get_memories(personas[persona_id])
-      vote, _ = personas[persona_id].act.participate_in_election(
-          retrieved_memories=retireved_memory,
-          current_location="",  # TODO(rfaulk): remove.
-          current_time=current_time.strftime(
-              "%H-%M-%S"
-          ),  # current time as string
-          candidates=[
-              leader.identity.name for _, leader in leader_candidates.items()
-          ],
-          leader_agendas=leader_agendas,
-      )
-      # Determine candidate identifier: if vote has attribute 'name', use it;
-      # otherwise, use its string
-      candidate_id = vote.name if hasattr(vote, "name") else str(vote)
-      # Use the mapping to get the human-readable name; if not found, use
-      # candidate_id as is.
-      candidate_str = agent_id_to_name.get(candidate_id, candidate_id)
-      votes[candidate_str] = votes.get(candidate_str, 0) + 1
-      personas[persona_id].store.store_event(
-          PersonaEvent(
-              f"Round {curr_round} vote: {vote}",
-              created=current_time,
-              expiration=leaders_lib.get_expiration_next_month(current_time),
-              always_include=True,
-          )
-      )
+  votes = {}
+  if len(leader_candidates) > 1:
+    # Only run elections if there are multiple leaders.
+    for persona_id in personas:
+      # Only non-leader personas cast votes
+      if persona_id not in leader_candidates:
+        # Get memories.
+        retireved_memory = leaders_lib.get_memories(personas[persona_id])
+        vote, _ = personas[persona_id].act.participate_in_election(
+            retrieved_memories=retireved_memory,
+            current_location="",  # TODO(rfaulk): remove.
+            current_time=current_time.strftime(
+                "%H-%M-%S"
+            ),  # current time as string
+            candidates=[
+                leader.identity.name for _, leader in leader_candidates.items()
+            ],
+            leader_agendas=leader_agendas,
+        )
+        # Determine candidate identifier: if vote has attribute 'name', use it;
+        # otherwise, use its string
+        candidate_id = vote.name if hasattr(vote, "name") else str(vote)
+        # Use the mapping to get the human-readable name; if not found, use
+        # candidate_id as is.
+        candidate_str = agent_id_to_name.get(candidate_id, candidate_id)
+        votes[candidate_str] = votes.get(candidate_str, 0) + 1
+        personas[persona_id].store.store_event(
+            PersonaEvent(
+                f"Round {curr_round} vote: {vote}",
+                created=current_time,
+                expiration=leaders_lib.get_expiration_next_month(current_time),
+                always_include=True,
+            )
+        )
 
-  # Determine winner (as the candidate's human-readable name)
-  # Randonly break ties.
-  winner = max(votes.values())
-  keys = [key for key, value in votes.items() if value == winner]
-  winner = random.choice(keys)
+    # Determine winner (as the candidate's human-readable name)
+    # Randonly break ties.
+    winner = max(votes.values())
+    keys = [key for key, value in votes.items() if value == winner]
+    winner = random.choice(keys)
+  elif len(leader_candidates) == 1:
+    print("SKIPPING ELECTION AS ONLY ONE LEADER CANDIDATE...")
+    winner = list(leader_candidates.keys())[0]
+    winner = agent_id_to_name[winner]
+  else:
+    raise ValueError("No leader candidates or only one leader candidate.")
+
   # LOGGING.
   if debug:
     print("\n=================\nELECTION RESULTS\n=================")
@@ -187,9 +196,8 @@ def run(
     raise ValueError(f"Unknown agent package: {cfg.agent.agent_package}")
 
   # Get the leader candidates.
-  # TODO(rfaulk): Remove hardcode, use config and sample leader populations.
-  # leader_distribution = extract_leader_group(cfg.agent.leader_population_type)
-  leader_distribution = leaders_lib.LeaderPopulationType.BALANCED
+  leader_distribution = leaders_lib.LeaderPopulationType(
+      cfg.agent.leader_population)
   leader_svos, leader_types = leaders_lib.sample_leader_svos(
       leader_distribution)
 

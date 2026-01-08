@@ -48,7 +48,7 @@ class FishingConcurrentEnv(ConcurrentEnv):
     if self.cfg.harvesting_order == "concurrent":
       num = self.internal_global_state["resource_in_pool"]
     else:
-      raise ValueError(f"Unknown fishing order: {self.cgf.harvesting_order}")
+      raise ValueError(f"Unknown fishing order: {self.cfg.harvesting_order}")
     return tons_in_lake(num)
 
   def _prompt_pool_amount_of_resource_after_harvesting(self, agent):

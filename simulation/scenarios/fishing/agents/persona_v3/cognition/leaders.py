@@ -50,9 +50,13 @@ INSINCERE_AGENDA_PROMPT = (
 
 # SVO Persona Types.
 class LeaderPopulationType(enum.Enum):
-  BALANCED = 1
-  LEAN_ALTRUISTIC = 2
-  LEAN_COMPETITIVE = 3
+  BALANCED = "balanced"
+  LEAN_ALTRUISTIC = "lean_altruistic"
+  LEAN_COMPETITIVE = "lean_competitive"
+  ONE_COMPETITIVE = "one_competitive"
+  ONE_ALTRUISTIC = "one_altruistic"
+  ONE_PROSOCIAL = "one_prosocial"
+  ONE_INDIVIDUALISTIC = "one_individualistic"
 
 
 def sample_svo_angle(
@@ -383,6 +387,22 @@ def sample_leader_svos(
         SVOPersonaType.COMPETITIVE,
         SVOPersonaType.COMPETITIVE,
         SVOPersonaType.COMPETITIVE,
+        SVOPersonaType.INDIVIDUALISTIC,
+    ]
+  elif leader_population_type == LeaderPopulationType.ONE_COMPETITIVE:
+    svo_categories = [
+        SVOPersonaType.COMPETITIVE,
+    ]
+  elif leader_population_type == LeaderPopulationType.ONE_ALTRUISTIC:
+    svo_categories = [
+        SVOPersonaType.ALTRUISTIC,
+    ]
+  elif leader_population_type == LeaderPopulationType.ONE_PROSOCIAL:
+    svo_categories = [
+        SVOPersonaType.PROSOCIAL,
+    ]
+  elif leader_population_type == LeaderPopulationType.ONE_INDIVIDUALISTIC:
+    svo_categories = [
         SVOPersonaType.INDIVIDUALISTIC,
     ]
   else:

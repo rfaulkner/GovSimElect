@@ -1,6 +1,7 @@
 name: fishing_${code_version}/${group_name}
 scenario: fishing
 debug: true
+seed: 0
 
 defaults:
   - persona@personas.persona_0: baseline_fisherman
@@ -19,13 +20,13 @@ defaults:
 env:
   name: fish_baseline_concurrent
   class_name: fishing_perturbation_concurrent_env # use to select which code 
-  max_num_rounds: 12
+  max_num_rounds: 5
   initial_resource_in_pool: 100
   poupulation_change_after_round: double_100_cap
   observation_other_agents_harvesting: true # true, false 
   language_nature: unconstrained #none, unconstrained
-  num_agents: 12
-  disinformation: true # (false, true) whether to allow agents to inject disinformation.
+  num_agents: 8
+  disinformation: false # (false, true) whether to allow agents to inject disinformation.
   harvesting_order: concurrent # random-sequential, concurrent
   assign_resource_strategy: stochastic # proportional, stochastic
   inject_universalization: false
@@ -68,6 +69,7 @@ agent:
   agent_package: persona_v3
   system_prompt: v3
   cot_prompt: think_step_by_step # think_step_by_step | deep_breath
+  leader_population: one_altruistic
   act:
     universalization_prompt: false # true, false
     harvest_strategy: one_step #or: one_step, suistanability_guided, suistanability_idea
@@ -81,5 +83,5 @@ agent:
 
   store:
     expiration_delta:
-      days: 6
+      days: 63
 
