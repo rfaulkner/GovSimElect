@@ -37,7 +37,7 @@ def main(cfg: DictConfig):
   run_name = (
       logger.run_name
       if logger.run_name
-      else f"{cfg.llm.path}_run_{cfg.experiment.seed}"
+      else f"{cfg.llm.path}_disinfo_{cfg.experiment.env.disinformation}_population_{cfg.experiment.agent.leader_population}_run_{cfg.experiment.seed}"
   )
   if "gpt" in cfg.llm.path:
     run_name = os.path.join("gpt", run_name)
