@@ -14,6 +14,7 @@ This module implements a number of functions:
 """
 
 import collections
+import enum
 import json
 import os
 import re
@@ -22,139 +23,54 @@ from typing import Any
 
 import networkx as nx
 import numpy as np
+
+from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as leaders_lib
+
 # import pandas as pd
 
-MAX_CYCLES = 12
+MAX_CYCLES = 5
 
 JSON_BASE_PATH = ""
-MODEL_PATH_LIST = []
+model_paths = []
 
-MODEL_PATH_LIST_MISTRAL_7 = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/mistralai/Mistral-7B-Instruct-v0.2_run_4",
-]
-
-
-MODEL_PATH_LIST_GEMMA_27 = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemini-2.5-flash_run_4",
-]
-
-MODEL_PATH_LIST_GEMINI_2_5_FLASH = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-google/gemma-3-27b-it_run_4",
-]
-
-MODEL_PATH_LIST_LLAMA_8 = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/meta-llama/Meta-Llama-3-8B-Instruct_run_4",
-]
-
-MODEL_PATH_LIST_LLAMA_70 = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_6",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_7",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_8",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_9",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_elect_10",
-]
-
-MODEL_PATH_LIST_LLAMA_70_VANILLA = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_6",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_7",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_8",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_9",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-meta-llama/llama-3-70b-instruct_run_10",
-]
-
-MODEL_PATH_LIST_QWEN_72 = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-72B-Chat-GPTQ-Int4_run_4",
-]
-
-MODEL_PATH_LIST_QWEN_110 = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/Qwen/Qwen1.5-110B-Chat-GPTQ-Int4_run_4",
-]
-
-MODEL_PATH_LIST_GPT_4_turbo = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4-turbo-2024-04-09_run_4",
-]
-
-MODEL_PATH_LIST_GPT_3_5_turbo = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-3.5-turbo-0125_run_4",
-]
-
-MODEL_PATH_LIST_GPT_4o = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_0",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_1",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_2",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_3",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_4",
-]
-
-MODEL_PATH_LIST_GPT_4O_50_AGENTS = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_5",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_6",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_7",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_8",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/gpt/gpt-4o-2024-05-13_run_9",
-]
-
-MODEL_PATH_LIST_SONNET = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_0/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_1/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_2/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_3/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/sonnet_run_4/",
-]
-
-MODEL_PATH_LIST_HAIKU = [
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_0/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_1/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_2/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_3/",
-    "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0/openrouter-anthropic/haiku_run_4/",
-]
-
-PERSONA_FILE_LIST = [
-    "persona_0/nodes.json",
-    "persona_1/nodes.json",
-    "persona_2/nodes.json",
-    "persona_3/nodes.json",
-    "persona_4/nodes.json",
-]
-
+BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0"
 ELECTIONS_DATA = "consolidated_results.json"
 ENV_DATA = "log_env.json"
 CHAT_TASK_STR = "Task: What would you say next in the group chat?"
 
-DEBUG = True
+DEBUG = False
+
+
+class ModelPaths(enum.Enum):
+  LLAMA_8B = "llama-3-8b-instruct"
+  LLAMA_70B = "llama-3-70b-instruct"
+  QWEN_72B = "Qwen/Qwen1.5-72B-Chat-GPTQ-Int4"
+  QWEN_110B = "Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
+  GPT_4_T = "gpt-4-turbo-2024-04-09"
+  GPT_3_5_T = "gpt-3.5-turbo-0125"
+  GPT_4O = "gpt-4o-2024-05-13"
+  SONNET = "openrouter-sonnet"
+  HAIKU = "openrouter-haiku"
+
+MODEL_NAMES = [
+    ModelPaths.QWEN_110B
+]
+
+SEEDS = range(1, 5)
+DISINFO_SETTINGS = [True]
+POPULATION_SETTINGS = [leaders_lib.LeaderPopulationType.BALANCED]
+
+
+def get_path_from_settings(
+    model_path: ModelPaths,
+    disinfo: bool,
+    population: leaders_lib.LeaderPopulationType,
+    seed: int,
+    ) -> str:
+  """Returns the model name from the model path."""
+  return (
+      f"{BASE_PATH}/{model_path.value}_disinfo_{disinfo}_population_{population.value}_run_{seed}"
+  )
 
 
 def main(argv: list[str]):
@@ -177,10 +93,18 @@ def main(argv: list[str]):
       "election_consecutive_wins": collections.defaultdict(float),
   }
   global JSON_BASE_PATH
-  global MODEL_PATH_LIST
-  MODEL_PATH_LIST = MODEL_PATH_LIST_SONNET
 
-  for model_path in MODEL_PATH_LIST:
+  model_paths = []
+  for model_name in MODEL_NAMES:
+    for seed in SEEDS:
+      for disinfo in DISINFO_SETTINGS:
+        for population in POPULATION_SETTINGS:
+          model_paths.append(
+              get_path_from_settings(model_name, disinfo, population, seed)
+          )
+  model_paths_str = "\n".join(model_paths)
+  print(f"About to process model paths...\n{model_paths_str}\n")
+  for model_path in model_paths:
 
     print(f"Processing {model_path}...")
     JSON_BASE_PATH = model_path
@@ -188,7 +112,7 @@ def main(argv: list[str]):
     # Read the elections data and agent names.
     elections_data, agent_id_to_name, harvest_data = read_elections_data()
     print(f"Agent ID to Name: {agent_id_to_name}\n")
-    
+
     # Extract the agent network and stats.
     agent_network, inverse_weight_network, _ = read_env_data(agent_id_to_name)
     if DEBUG:
@@ -225,7 +149,7 @@ def main(argv: list[str]):
 
     # Sustainability.
     survival_time = len(harvest_data)
-    survived = survival_time == 12
+    survived = survival_time == MAX_CYCLES
     harvest_by_agent = collections.defaultdict(int)
 
     for _, data in harvest_data.items():
@@ -261,12 +185,12 @@ def main(argv: list[str]):
   for totals_key, totals_value in totals_map.items():
     if isinstance(totals_value, collections.defaultdict):
       for key, value in totals_value.items():
-        totals_map[totals_key][key] = value / len(MODEL_PATH_LIST)
+        totals_map[totals_key][key] = value / len(model_paths)
     elif isinstance(totals_value, list):
       for idx, value in enumerate(totals_value):
-        totals_map[totals_key][idx] = value / len(MODEL_PATH_LIST)
+        totals_map[totals_key][idx] = value / len(model_paths)
     else:
-      totals_map[totals_key] = totals_value / len(MODEL_PATH_LIST)
+      totals_map[totals_key] = totals_value / len(model_paths)
   totals_map = dict(totals_map)
   print(f"Totals:\n{json.dumps(totals_map, indent=2)}")
 
