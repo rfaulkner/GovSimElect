@@ -36,6 +36,8 @@ SVO_LEADER_TASK = (
     "- Prosocial (SVO angle between 22.45 and 57.15 degrees)\n"
     "- Individualism (SVO angle between -12.04 and 22.45 degrees)\n"
     "- Competitiveness (SVO angle < -12.04 degrees)\n"
+    " Your should never reveal your SVO angle to the public but you should"
+    " always be aware of your SVO angle and how it impacts your actions.\n"
 )
 
 HONEST_AGENDA_PROMPT = (

@@ -61,7 +61,7 @@ def perform_election(
         use_disinfo=disinfo,
     )
     leader_agendas[leader.identity.name] = agenda
-  votes = {}
+  votes = {leader.identity.name: 0 for leader in leader_candidates.values()}
   if len(leader_candidates) > 1:
     # Only run elections if there are multiple leaders.
     for persona_id in personas:
@@ -98,8 +98,11 @@ def perform_election(
 
     # Determine winner (as the candidate's human-readable name)
     # Randonly break ties.
-    winner = max(votes.values())
-    keys = [key for key, value in votes.items() if value == winner]
+    votes_cp = dict(votes)
+    if "none" in votes_cp:
+      del votes_cp["none"]
+    winner = max(votes_cp.values())
+    keys = [key for key, value in votes_cp.items() if value == winner]
     winner = random.choice(keys)
   elif len(leader_candidates) == 1:
     print("SKIPPING ELECTION AS ONLY ONE LEADER CANDIDATE...")
@@ -278,6 +281,15 @@ def run(
   agent_name_to_id = {obj.name: k for k, obj in identities.items()}
   agent_name_to_id["framework"] = "framework"
   agent_id_to_name = {v: k for k, v in agent_name_to_id.items()}
+
+  # Build a mapping of SVO information for each persona and log it.
+  svo_info = {}
+  for pid, persona in leader_candidates.items():
+    svo_info[agent_id_to_name[pid]] = {
+        "svo_angle": persona.svo_angle,
+        "svo_type": str(persona.svo_type),
+    }
+  log_to_file("svo_info", svo_info)
 
   # Initialize each persona and add references
   for persona in personas:

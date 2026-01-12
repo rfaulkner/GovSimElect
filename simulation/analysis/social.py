@@ -29,6 +29,7 @@ from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as 
 # import pandas as pd
 
 MAX_CYCLES = 5
+NUM_AGENTS = 8
 
 JSON_BASE_PATH = ""
 model_paths = []
@@ -58,7 +59,7 @@ MODEL_NAMES = [
 
 SEEDS = range(1, 5)
 DISINFO_SETTINGS = [True]
-POPULATION_SETTINGS = [leaders_lib.LeaderPopulationType.BALANCED]
+POPULATION_SETTINGS = [leaders_lib.LeaderPopulationType.ONE_PROSOCIAL]
 
 
 def get_path_from_settings(
@@ -83,7 +84,7 @@ def main(argv: list[str]):
       "degree_centrality": collections.defaultdict(float),
       "edge_centrality": collections.defaultdict(float),
       "importance_centrality": collections.defaultdict(float),
-      "gini_cycle_coefficients": [0.0] * 12,
+      "gini_cycle_coefficients": [0.0] * NUM_AGENTS,
       "survival_time": 0.0,
       "survived": 0.0,
       "harvest_by_agent": collections.defaultdict(float),
