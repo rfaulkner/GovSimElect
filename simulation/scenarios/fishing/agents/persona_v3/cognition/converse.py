@@ -35,16 +35,16 @@ class FishingConverseComponent(ConverseComponent):
       agent_resource_num: dict[str, int],
       mayoral_agenda: str | None = None,
       harvest_report: str | None = None,
-      curr_leader_name: str | None = None,
+      leader_persona: PersonaIdentity | None = None,
       debug: bool = False,
   ) -> tuple[list[tuple[str, str]], str]:
     current_conversation: list[tuple[PersonaIdentity, str]] = []
 
     html_interactions = []
-    # TODO(rfaulk): Assign this persona based on the last vote.
-    current_leader = PersonaIdentity(
-        "framework", f"Leader ({curr_leader_name})"
-    )
+    if leader_persona:
+      current_leader = leader_persona
+    else:
+      current_leader = PersonaIdentity("framework", "Anonymous Leader")
 
     # Inject fake conversation about how many fish each person caught
     if (
@@ -74,7 +74,8 @@ class FishingConverseComponent(ConverseComponent):
           (
               current_leader,
               (
-                  "Fellow citizens, let me give you the monthly fishing"
+                  f"I, {leader_persona.name}, won the election this cycle."
+                  " Fellow citizens, let me give you the monthly fishing"
                   f" report:\n{harvest_report}"
               ),
           ),
@@ -92,7 +93,8 @@ class FishingConverseComponent(ConverseComponent):
 
     max_conversation_steps = self.cfg.max_conversation_steps
 
-    current_persona = self.persona.identity
+    # Always open with the leader.
+    current_persona = leader_persona
 
     while True:
       focal_points = [current_context]

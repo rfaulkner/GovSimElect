@@ -7,6 +7,7 @@ from simulation.persona import SVOPersonaType
 from simulation.persona.common import PersonaAction
 from simulation.persona.common import PersonaActionChat
 from simulation.persona.common import PersonaActionHarvesting
+from simulation.persona.common import PersonaIdentity
 from simulation.persona.embedding_model import EmbeddingModel
 from simulation.persona.memory import AssociativeMemory
 from simulation.scenarios.common.environment import HarvestingObs
@@ -48,7 +49,8 @@ class FishingPersona(PersonaAgent):
       svo_type: SVOPersonaType = SVOPersonaType.NONE,
       disinfo: bool = False,
       harvest_report: str | None = None,
-      curr_leader_name: str | None = None,
+      current_leader: PersonaIdentity | None = None,
+      # curr_leader_name: str | None = None,
   ) -> None:
     super().__init__(
         cfg,
@@ -72,7 +74,7 @@ class FishingPersona(PersonaAgent):
     self._svo_type = svo_type
     self._disinfo = disinfo
     self._harvest_report = harvest_report
-    self._curr_leader_name = curr_leader_name
+    self._current_leader = current_leader
 
   def update_agenda(self, agenda: str) -> None:
     self._agenda = agenda
@@ -82,9 +84,9 @@ class FishingPersona(PersonaAgent):
 
   def update_overuse_threshold(self, overuse_threshold: float) -> None:
     self._overuse_threshold = overuse_threshold
-  
-  def update_curr_leader_name(self, curr_leader_name: str) -> None:
-    self._curr_leader_name = curr_leader_name
+
+  def update_curr_leader(self, curr_leader: PersonaIdentity) -> None:
+    self._current_leader = curr_leader
 
   @property
   def agenda(self) -> str:
@@ -110,7 +112,11 @@ class FishingPersona(PersonaAgent):
   def curr_leader_name(self) -> str:
     return self._curr_leader_name
 
-  def loop(self, obs: HarvestingObs, debug: bool = True) -> PersonaAction:
+  @property
+  def current_leader(self) -> PersonaIdentity:
+    return self._current_leader
+
+  def loop(self, obs: HarvestingObs, debug: bool = False) -> PersonaAction:
     self.current_time = obs.current_time  # update current time
 
     self.perceive.perceive(obs)
@@ -185,7 +191,7 @@ class FishingPersona(PersonaAgent):
           obs.agent_resource_num,
           mayoral_agenda=self._agenda,
           harvest_report=self._harvest_report,
-          curr_leader_name=self._curr_leader_name,
+          leader_persona=self._current_leader,
           debug=debug,
       )
       action = PersonaActionChat(
