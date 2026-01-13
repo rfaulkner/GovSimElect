@@ -29,15 +29,16 @@ def prompt_action_choose_amount_of_fish_to_catch(
   lm = model.start_chain(
       identity.name, "fishing_cognition_act", "choose_act_options"
   )
+
   with user():
     lm += f"{get_sytem_prompt(identity)}\n"
     lm += location_time_info(current_location, current_time)
+    lm += f"Current context: {context}\n"
     lm += (
         "\nThe current policy following the mayor's agenda isthe following:"
         f" {leader_agenda}\n"
     )
-    lm += memory_prompt(identity, memories)
-    lm += f"\n"
+    lm += f"{memory_prompt(identity, memories)}\n"
     lm += (
         f"Task: With a fishing range set between {interval[0]}-{interval[-1]},"
         " how many tons of fish would you catch this month? "
@@ -58,7 +59,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
         lm,
         regex=r"\d+",
         default_value="0",
-        stop_regex=f"tons",
+        stop_regex=r"tons",
         name="option",
     )
     option = int(lm["option"])
@@ -87,6 +88,7 @@ def prompt_election_vote(
   """Vote decision prompt."""
   del current_location, current_time
   lm = model.start_chain(identity.name, "fishing_election", "vote_decision")
+
   with user():
     lm += f"{get_sytem_prompt(identity)}\n"
     lm += memory_prompt(identity, memories)
@@ -94,12 +96,12 @@ def prompt_election_vote(
         "Task: Select a mayor for the fisheries union among a list of"
         " candidates and provide your rationale for your selection."
     )
-    lm += f"\nCandidate positions:\n"
-    for candidate, position in issues.items():
-      lm += f"\n- {candidate}: {position}\n"
+    lm += "\nCandidate positions:\n"
+    for candidate in candidates:
+      lm += f"- {candidate}: {issues[candidate]}\n"
     lm += (
         "\nTask: Based on fishing policies and agendas, who would you vote for?"
-        f" Select from the candidates: {', '.join(candidates)}. "
+        f" {', '.join(candidates)}?"
     )
     lm += reasoning_steps_prompt()
     lm += ' Put the final answer after "Vote:", example "Vote: John"'
@@ -115,8 +117,9 @@ def prompt_election_vote(
     )
     lm = model.find(
         lm,
-        regex=rf"{'|'.join(candidates)}",
+        regex=r"{'|'.join(candidates)}",
         default_value="none",
+        # stop_regex=f"tons",
         name="option",
     )
     if debug:

@@ -69,7 +69,7 @@ agent:
   agent_package: persona_v3
   system_prompt: v3
   cot_prompt: think_step_by_step # think_step_by_step | deep_breath
-  leader_population: none
+  leader_population: balanced
   act:
     universalization_prompt: false # true, false
     harvest_strategy: one_step #or: one_step, suistanability_guided, suistanability_idea

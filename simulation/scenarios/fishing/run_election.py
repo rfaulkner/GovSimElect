@@ -69,16 +69,18 @@ def perform_election(
       if persona_id not in leader_candidates:
         # Get memories.
         retireved_memory = leaders_lib.get_memories(personas[persona_id])
+        # Shuffle the candidates and agendas.
+        candidates = list(leader_candidates.keys())
+        random.shuffle(candidates)
         vote, _ = personas[persona_id].act.participate_in_election(
             retrieved_memories=retireved_memory,
             current_location="",  # TODO(rfaulk): remove.
             current_time=current_time.strftime(
                 "%H-%M-%S"
             ),  # current time as string
-            candidates=[
-                leader.identity.name for _, leader in leader_candidates.items()
-            ],
+            candidates=candidates,
             leader_agendas=leader_agendas,
+            debug=debug,
         )
         # Determine candidate identifier: if vote has attribute 'name', use it;
         # otherwise, use its string
