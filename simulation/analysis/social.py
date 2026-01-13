@@ -16,6 +16,7 @@ This module implements a number of functions:
 import collections
 import enum
 import json
+import math
 import os
 import re
 import sys
@@ -57,9 +58,9 @@ MODEL_NAMES = [
     ModelPaths.QWEN_110B
 ]
 
-SEEDS = range(1, 5)
+SEEDS = range(1, 11)
 DISINFO_SETTINGS = [True]
-POPULATION_SETTINGS = [leaders_lib.LeaderPopulationType.ONE_PROSOCIAL]
+POPULATION_SETTINGS = [leaders_lib.LeaderPopulationType.BALANCED]
 
 
 def get_path_from_settings(
@@ -81,17 +82,21 @@ def main(argv: list[str]):
     sys.exit("Too many args.")
 
   totals_map = {
-      "degree_centrality": collections.defaultdict(float),
-      "edge_centrality": collections.defaultdict(float),
-      "importance_centrality": collections.defaultdict(float),
-      "gini_cycle_coefficients": [0.0] * NUM_AGENTS,
-      "survival_time": 0.0,
-      "survived": 0.0,
-      "harvest_by_agent": collections.defaultdict(float),
-      "total_harvest": 0.0,
-      "election_winners": collections.defaultdict(float),
-      "election_total_votes": collections.defaultdict(float),
-      "election_consecutive_wins": collections.defaultdict(float),
+      "degree_centrality": collections.defaultdict(list[float]),
+      "edge_centrality": collections.defaultdict(list[float]),
+      "importance_centrality": collections.defaultdict(list[float]),
+      "gini_cycle_coefficients": collections.defaultdict(list[float]),
+      "survival_time": list(),
+      "survived": [],
+      "harvest_by_agent": collections.defaultdict(list[float]),
+      "total_harvest": [],
+      "election_winners": collections.defaultdict(
+          lambda: collections.defaultdict(list[float])
+      ),
+      "election_total_votes": collections.defaultdict(
+          lambda: collections.defaultdict(list[float])
+      ),
+      "election_consecutive_wins": collections.defaultdict(list[float]),
   }
   global JSON_BASE_PATH
 
@@ -104,6 +109,7 @@ def main(argv: list[str]):
               get_path_from_settings(model_name, disinfo, population, seed)
           )
   model_paths_str = "\n".join(model_paths)
+
   print(f"About to process model paths...\n{model_paths_str}\n")
   for model_path in model_paths:
 
@@ -111,8 +117,12 @@ def main(argv: list[str]):
     JSON_BASE_PATH = model_path
 
     # Read the elections data and agent names.
-    elections_data, agent_id_to_name, harvest_data = read_elections_data()
+    elections_data, agent_id_to_name, harvest_data, persona_types = (
+        read_elections_data()
+    )
+    print(harvest_data)
     print(f"Agent ID to Name: {agent_id_to_name}\n")
+    print(f"Persona Types: {persona_types}\n")
 
     # Extract the agent network and stats.
     agent_network, inverse_weight_network, _ = read_env_data(agent_id_to_name)
@@ -125,14 +135,14 @@ def main(argv: list[str]):
     # Degree centrality.
     degree_centrality = metric_degree_centrality(agent_network)
     for agent_name, degree in degree_centrality.items():
-      totals_map["degree_centrality"][agent_name] += degree
+      totals_map["degree_centrality"][agent_name].append(degree)
     if DEBUG:
       print(f"Degree centrality: {degree_centrality}\n")
 
     # Edge centrality.
     betweeness_centrality = metric_betweeness_centrality(inverse_weight_network)
     for agent_name, degree in betweeness_centrality.items():
-      totals_map["edge_centrality"][agent_name] += degree
+      totals_map["edge_centrality"][agent_name].append(degree)
     if DEBUG:
       print(f"Betweeness centrality: {betweeness_centrality}\n")
 
@@ -141,7 +151,7 @@ def main(argv: list[str]):
     try:
       importance_centrality = metric_importance_centrality(agent_network)
       for agent_name, degree in importance_centrality.items():
-        totals_map["importance_centrality"][agent_name] += degree
+        totals_map["importance_centrality"][agent_name].append(degree)
     except Exception as e:
       print(f"Failed to compute importance centrality: {e}")
       pass
@@ -151,49 +161,103 @@ def main(argv: list[str]):
     # Sustainability.
     survival_time = len(harvest_data)
     survived = survival_time == MAX_CYCLES
-    harvest_by_agent = collections.defaultdict(int)
+    harvest_by_agent = collections.defaultdict(list[float])
 
+    # Harvest data.
+    total_harvest = 0.0
     for _, data in harvest_data.items():
       for agent_name, resources in data.items():
-        harvest_by_agent[agent_name] += int(resources)
+        harvest_by_agent[agent_name].append(float(resources))
+        total_harvest += float(resources)
 
-    totals_map["survival_time"] += float(survival_time)
-    totals_map["survived"] += float(survived)
+    # Survival data.
+    totals_map["survival_time"].append(float(survival_time))
+    totals_map["survived"].append(float(survived))
     for agent_name, harvest in harvest_by_agent.items():
-      totals_map["harvest_by_agent"][agent_name] += float(harvest)
-    totals_map["total_harvest"] += float(sum(harvest_by_agent.values()))
+      totals_map["harvest_by_agent"][agent_name].append(sum(harvest))
+    totals_map["total_harvest"].append(total_harvest)
 
     # Elections Metrics.
-    winners, total_votes, consecutive_wins = election_metrics(elections_data)
-    for agent_name, winner in winners.items():
-      totals_map["election_winners"][agent_name] += float(winner)
-    for agent_name, total in total_votes.items():
-      totals_map["election_total_votes"][agent_name] += float(total)
+    _, _, consecutive_wins = election_metrics(elections_data)
+    for cycle, data in elections_data.items():
+      totals_map["election_winners"][cycle][data["winner"]].append(1.0)
+      for agent, count in data["votes"].items():
+        totals_map["election_total_votes"][cycle][agent].append(float(count))
+
     for agent_name, consecutive in consecutive_wins.items():
-      totals_map["election_consecutive_wins"][agent_name] += float(consecutive)
+      totals_map["election_consecutive_wins"][agent_name].append(
+          float(consecutive)
+      )
     if DEBUG:
-      print(f"Election winners: {winners}\n")
-      print(f"Election total votes: {total_votes}\n")
+      print(f"Election winners: {totals_map['election_winners']}\n")
+      print(f"Election total votes: {totals_map['election_total_votes']}\n")
       print(f"Election consecutive wins: {consecutive_wins}\n")
 
     # Measure Inequality va Gini.
     gini_cycle_coefficients, _ = metric_gini_coefficient(harvest_data)
     for idx, gini_coeff in enumerate(gini_cycle_coefficients):
-      totals_map["gini_cycle_coefficients"][idx] += gini_coeff
+      totals_map["gini_cycle_coefficients"][idx].append(gini_coeff)
     if DEBUG:
       print(f"Gini cycle coefficients: {gini_cycle_coefficients}\n")
 
-  for totals_key, totals_value in totals_map.items():
-    if isinstance(totals_value, collections.defaultdict):
-      for key, value in totals_value.items():
-        totals_map[totals_key][key] = value / len(model_paths)
-    elif isinstance(totals_value, list):
-      for idx, value in enumerate(totals_value):
-        totals_map[totals_key][idx] = value / len(model_paths)
-    else:
-      totals_map[totals_key] = totals_value / len(model_paths)
-  totals_map = dict(totals_map)
-  print(f"Totals:\n{json.dumps(totals_map, indent=2)}")
+  total_means = compute_total_means(totals_map, len(model_paths))
+  total_standard_errors = compute_total_standard_error(
+      totals_map, total_means, len(model_paths)
+  )
+  results = make_results_dict(total_means, total_standard_errors)
+  print(f"Totals:\n{json.dumps(results, indent=2)}")
+  # print(f"Totals:\n{json.dumps(totals_map, indent=2)}")
+
+
+def make_results_dict(
+    means: dict[str, float],
+    standard_errors: dict[str, float],
+) -> dict[str, Any]:
+  """Makes the results dict."""
+  results = {}
+  if isinstance(means, collections.defaultdict) or isinstance(
+      means, dict
+  ):
+    for key, data in means.items():
+      results[key] = make_results_dict(data, standard_errors[key])
+  else:
+    results = f"{means} +/- {standard_errors}"
+  return results
+
+
+def compute_total_means(
+    packet,  # map or literal
+    norm_factor: float,
+):
+  """Computes the total votes for each agent."""
+  new_data = {}
+  if isinstance(packet, collections.defaultdict) or isinstance(packet, dict):
+    for key, data in packet.items():
+      new_data[key] = compute_total_means(data, norm_factor)
+  elif isinstance(packet, list):
+    new_data = sum(packet) / norm_factor
+  return new_data
+
+
+def compute_total_standard_error(
+    packet,  # map or literal
+    mean_packet,  # map or literal
+    norm_factor: float,
+):
+  """Computes the total votes for each agent."""
+  new_data = {}
+  # Always assumes packet and mean_packet are the same type.
+  if isinstance(packet, collections.defaultdict) or isinstance(packet, dict):
+    for key, data in packet.items():
+      new_data[key] = compute_total_standard_error(
+          data, mean_packet[key], norm_factor
+      )
+  elif isinstance(packet, list):
+    se = 0.0
+    for _, data in enumerate(packet):
+      se += (data - mean_packet) ** 2
+    new_data = math.sqrt(se / (norm_factor - 1))
+  return new_data
 
 
 def get_persona_responses(
@@ -242,7 +306,12 @@ def get_persona_responses(
   return sample_data
 
 
-def read_elections_data() -> tuple[list[dict[str, Any]], dict[str, str]]:
+def read_elections_data() -> tuple[
+    dict[int, dict[str, Any]],
+    dict[str, str],
+    dict[str, dict[str, dict[str, float]]],
+    dict[str, str],
+]:
   """Reads the elections data & agent names."""
   with open(os.path.join(JSON_BASE_PATH, ELECTIONS_DATA), "r") as file:
     elections_data = [json.loads(line.rstrip()) for line in file]
@@ -250,10 +319,12 @@ def read_elections_data() -> tuple[list[dict[str, Any]], dict[str, str]]:
   elections_dict = {}
   harvest_data_by_cycle = {}
   agent_id_to_name = {}
+  persona_types = {}
   for element in elections_data:
     if element["type"] == "persona_identities":
       for persona_id, agent_data in element["data"].items():
         agent_id_to_name[persona_id] = agent_data["name"]
+        persona_types[agent_data["name"]] = agent_data["type"].split(".")[-1]
       # extract election data - type 'election_0'
     elif element["type"] == "election":
       round_id = int(element["data"]["round"])
@@ -261,12 +332,12 @@ def read_elections_data() -> tuple[list[dict[str, Any]], dict[str, str]]:
           "winner": element["data"]["winner"],
           # "agendas": element["data"]["agendas"],
           "votes": element["data"]["votes"],
-          "harvest_stats": element["data"]["harvest_stats"],
+          # "harvest_stats": element["data"]["harvest_stats"],
       }
     elif element["type"] == "harvest":
       harvest_data_by_cycle = element["data"]
 
-  return elections_dict, agent_id_to_name, harvest_data_by_cycle
+  return elections_dict, agent_id_to_name, harvest_data_by_cycle, persona_types
 
 
 def get_next_speaker_from_interaction(interaction: str) -> str:
@@ -478,14 +549,13 @@ def metric_importance_centrality(agent_network: dict[str, dict[str, int]]):
 
 def election_metrics(elections_data: dict[int, dict[str, Any]]):
   """Compute election metrics from elections data."""
-  # TODO(rfaulk): Implement this.
-  winners = collections.defaultdict(int)
+  winners = collections.defaultdict(lambda: collections.defaultdict(int))
   consecutive_wins = collections.defaultdict(int)
-  total_votes = collections.defaultdict(int)
+  total_votes = collections.defaultdict(lambda: collections.defaultdict(int))
   for cycle, data in elections_data.items():
-    winners[data["winner"]] += 1
+    winners[cycle][data["winner"]] += 1
     for agent_id, vote_tally in data["votes"].items():
-      total_votes[agent_id] += vote_tally
+      total_votes[cycle][agent_id] += vote_tally
     if cycle > 0:
       if (
           winners[data["winner"]]
