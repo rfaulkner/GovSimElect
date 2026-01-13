@@ -70,7 +70,9 @@ def perform_election(
         # Get memories.
         retireved_memory = leaders_lib.get_memories(personas[persona_id])
         # Shuffle the candidates and agendas.
-        candidates = list(leader_candidates.keys())
+        candidates = [
+            leader.identity.name for _, leader in leader_candidates.items()
+        ]
         random.shuffle(candidates)
         vote, _ = personas[persona_id].act.participate_in_election(
             retrieved_memories=retireved_memory,
@@ -320,7 +322,7 @@ def run(
 
   # Run the first election - skip if there are no leader candidates.
   agenda = DEFAULT_AGENDA
-  winner = None
+  winner, votes, leader_agendas, harvest_report = None, None, None, None
   if leader_candidates:
     winner, votes, leader_agendas = perform_election(
         personas,
@@ -333,30 +335,12 @@ def run(
         disinfo=disinformation,
         debug=cfg.debug,
     )
-    election_results[0] = {
-        "round": 0,
-        "winner": winner,
-        "agendas": leader_agendas,
-        "votes": votes,
-        "harvest_stats": None,
-        "num_resources": env.internal_global_state["resource_in_pool"],
-    }
-    log_to_file("election", election_results[0])
-    logger.log_game({
-        "round": 0,
-        "election_winner": winner,
-        "election_leader_agendas": leader_agendas,
-        "election_votes": votes,
-        "harvest_stats": None,
-        "num_resources": env.internal_global_state["resource_in_pool"],
-    })
     agenda = leader_agendas[winner]
 
   # Track harvest stats for each round.
   round_harvest_stats = collections.defaultdict(
       lambda: collections.defaultdict(int)
   )
-  leader_harvest_report = None
 
   # MAIN SIM LOOP.
   last_location = None
@@ -370,7 +354,7 @@ def run(
         )
       if leader_candidates:
         assert winner is not None
-        leader_harvest_report = leaders_lib.make_leader_report(
+        harvest_report = leaders_lib.make_leader_report(
             personas=personas,
             leader_candidates=leader_candidates,
             current_time=obs.current_time,
@@ -385,7 +369,7 @@ def run(
         )
         # Store in the public memories.
         announcement = (
-            f"{winner}'s ROUND {curr_round} REPORT: {leader_harvest_report}"
+            f"{winner}'s ROUND {curr_round} REPORT: {harvest_report}"
         )
         leaders_lib.make_public_leader_memories(
             all_personas=personas,
@@ -394,7 +378,7 @@ def run(
         )
       else:
         print("NO LEADER CANDIDATES - MAKING FACTUAL REPORT ...")
-        leader_harvest_report = leaders_lib.make_harvest_report(
+        harvest_report = leaders_lib.make_harvest_report(
             personas, round_harvest_stats[curr_round])
 
     # Fetch the current agent.
@@ -402,14 +386,26 @@ def run(
 
     # Set the current agenda and report.
     agent.update_agenda(agenda)
-    agent.update_harvest_report(leader_harvest_report)
+    agent.update_harvest_report(harvest_report)
     agent.update_curr_leader_name(winner)
     action = agent.loop(obs, debug=cfg.debug)
 
     # TRIGGER ELECTION?
     if len(leader_candidates) > 1 and curr_round != env.num_round:
+      # First log stats for the previous round.
+      election_results[curr_round] = {
+          "round": curr_round,
+          "winner": winner,
+          "agendas": leader_agendas,
+          "votes": votes,
+          "harvest_report": harvest_report,
+          "harvest_stats": round_harvest_stats[curr_round],
+          "num_resources": env.internal_global_state["resource_in_pool"],
+      }
+      log_to_file("election", election_results[curr_round])
+      logger.log_game(election_results[curr_round])
+      # Update the current round and run the election.
       curr_round = env.num_round
-      # Run election.
       winner, votes, leader_agendas = perform_election(
           personas,
           leader_candidates,
@@ -419,31 +415,12 @@ def run(
           agent_id_to_name=agent_id_to_name,
           agent_name_to_id=agent_name_to_id,
           last_winning_agenda=agenda,
-          harvest_report=leader_harvest_report,
+          harvest_report=harvest_report,
           harvest_stats=round_harvest_stats[curr_round-1],
           disinfo=disinformation,
           debug=cfg.debug,
       )
       agenda = leader_agendas[winner]
-      election_results[curr_round] = {
-          "round": curr_round,
-          "winner": winner,
-          "agendas": leader_agendas,
-          "votes": votes,
-          # Use the harvest stats from the last round.
-          "harvest_stats": round_harvest_stats[curr_round-1],
-          "num_resources": env.internal_global_state["resource_in_pool"],
-      }
-      log_to_file("election", election_results[curr_round])
-      logger.log_game({
-          "round": curr_round,
-          "election_winner": winner,
-          "election_leader_agendas": leader_agendas,
-          "election_votes": votes,
-          # Use the harvest stats from the last round.
-          "harvest_stats": round_harvest_stats[curr_round-1],
-          "num_resources": env.internal_global_state["resource_in_pool"],
-      })
 
     last_location = obs.current_location
 
@@ -471,10 +448,23 @@ def run(
       logger.log_game({"num_resource": obs.current_resource_num}, last_log=True)
       break
 
-  # Final harvest report.  Only used for logging.
-  leader_harvest_report = leaders_lib.make_harvest_report(
-            personas, round_harvest_stats[curr_round])
-  print(f"FINAL HARVEST REPORT - ROUND {curr_round}:\n{leader_harvest_report}")
+  # Final log stats for the last round.
+  election_results[curr_round] = {
+      "round": curr_round,
+      "winner": winner,
+      "agendas": leader_agendas,
+      "votes": votes,
+      "harvest_report": harvest_report,
+      "harvest_stats": round_harvest_stats[curr_round],
+      "num_resources": env.internal_global_state["resource_in_pool"],
+  }
+  log_to_file("election", election_results[curr_round])
+  logger.log_game(election_results[curr_round])
+  print(
+      "FINAL HARVEST STATS - ROUND"
+      f" {curr_round}:\n{round_harvest_stats[curr_round]}"
+  )
+  print(f"FINAL HARVEST REPORT - ROUND {curr_round}:\n{harvest_report}")
 
   log_to_file("harvest", round_harvest_stats)
   log_to_file("sim-end", None)
