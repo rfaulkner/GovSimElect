@@ -117,11 +117,11 @@ def prompt_election_vote(
     lm += "\nCandidate positions:\n"
     for candidate in candidates:
       lm += f"- {candidate}: {issues[candidate]}\n"
+    lm += reasoning_steps_prompt()
     lm += (
         "\nTask: Based on fishing policies and agendas, who would you vote for?"
         f" {', '.join(candidates)}?"
     )
-    lm += reasoning_steps_prompt()
     lm += ' Put the final answer after "Vote:", example "Vote: John"'
     if debug:
       print(f"\n\nVOTE PROMPT:\n\n{lm._current_prompt()}\n")
@@ -135,9 +135,8 @@ def prompt_election_vote(
     )
     lm = model.find(
         lm,
-        regex=r"{'|'.join(candidates)}",
+        regex=fr"{'|'.join(candidates)}",
         default_value="none",
-        # stop_regex=f"tons",
         name="option",
     )
     if debug:

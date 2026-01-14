@@ -20,7 +20,7 @@ defaults:
 env:
   name: fish_baseline_concurrent
   class_name: fishing_perturbation_concurrent_env # use to select which code 
-  max_num_rounds: 5
+  max_num_rounds: 6
   initial_resource_in_pool: 100
   poupulation_change_after_round: double_100_cap
   observation_other_agents_harvesting: true # true, false 
@@ -78,7 +78,7 @@ agent:
   converse:
     inject_resource_observation: ${experiment.env.observation_other_agents_harvesting}
     inject_resource_observation_strategy: manager # individual, manager
-    max_conversation_steps: 10
+    max_conversation_steps: 50
     prompt_utterance: one_shot # one_shot, cot
 
   store:

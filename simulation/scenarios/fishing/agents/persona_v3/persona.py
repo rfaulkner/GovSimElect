@@ -137,6 +137,7 @@ class FishingPersona(PersonaAgent):
                 range(0, obs.current_resource_num + 1),
                 obs.before_harvesting_sustainability_threshold,
                 self._agenda,
+                debug=debug,
             )
         )
         action = PersonaActionHarvesting(
