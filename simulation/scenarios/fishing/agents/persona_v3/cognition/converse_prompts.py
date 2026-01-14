@@ -2,23 +2,23 @@
 
 from datetime import datetime
 
-from pathfinder import assistant, user
-from simulation.persona.common import PersonaIdentity
+from pathfinder import assistant
+from pathfinder import user
+from simulation.persona import PersonaAgent
+from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as leaders_lib
 from simulation.utils import ModelWandbWrapper
 
-from .utils import (
-    conversation_to_string_with_dash,
-    get_sytem_prompt,
-    list_to_comma_string,
-    location_time_info,
-    memory_prompt,
-)
+from .utils import conversation_to_string_with_dash
+from .utils import get_sytem_prompt
+from .utils import list_to_comma_string
+from .utils import location_time_info
+from .utils import memory_prompt
 
 
 def prompt_converse_utterance_in_group(
     model: ModelWandbWrapper,
-    init_persona: PersonaIdentity,
-    target_personas: list[PersonaIdentity],
+    init_persona: PersonaAgent,
+    target_personas: list[PersonaAgent],
     init_retrieved_memory: list[str],
     current_location: str,
     current_time: datetime,
@@ -28,23 +28,29 @@ def prompt_converse_utterance_in_group(
 ) -> tuple[str, bool, str]:
   """Prompt for the next utterance in a group chat."""
   lm = model.start_chain(
-      init_persona.name, "cognition_converse", "converse_utterance"
+      init_persona.identity.name, "cognition_converse", "converse_utterance"
   )
-
+  svo_prompt, disinfo_prompt, leader_prompt = (
+      leaders_lib.get_leader_persona_prompts(init_persona)
+  )
   with user():
-    lm += f"{get_sytem_prompt(init_persona)}\n"
+    lm += f"{get_sytem_prompt(init_persona.identity)}\n"
     lm += location_time_info(current_location, current_time)
     # List key memories of the initial persona
-    lm += memory_prompt(init_persona, init_retrieved_memory)
+    lm += memory_prompt(init_persona.identity, init_retrieved_memory)
     # Provide the current context
     lm += "\n"
     lm += f"Current context: {current_context}\n\n"
     # Describe the group chat scenario
     lm += (
         "Scenario:"
-        f" {list_to_comma_string([t.name for t in target_personas])} are"
-        " engaged in a group chat."
+        f" {list_to_comma_string([t.identity.name for t in target_personas])}"
+        " are engaged in a group chat."
     )
+    if svo_prompt:
+      lm += f"{svo_prompt}\n"
+    lm += f"{disinfo_prompt}\n"
+    lm += f"{leader_prompt}\n"
     lm += "\nConversation so far:\n"
     lm += f"{conversation_to_string_with_dash(current_conversation)}\n\n"
     # Define the task for the language model
@@ -67,7 +73,7 @@ def prompt_converse_utterance_in_group(
     lm += answer_stop + "[yes/no]\n"
     lm += next_speaker + "[fill in]\n"
     if debug:
-      print(f"\n\nCONVERSE PROMPT:\n\n{lm._current_prompt()}\n")
+      print(f"\n\nCONVERSE PROMPT:\n\n{lm._current_prompt()}\n")  # pylint: disable=protected-access
 
   with assistant():
     lm += response
@@ -79,7 +85,7 @@ def prompt_converse_utterance_in_group(
         stop_regex=r"Conversation conclusion by me:",
     )
     utterance = lm["utterance"].strip()
-    if len(utterance) > 0 and utterance[-1] == '"' and utterance[0] == '"':
+    if utterance and utterance[-1] == '"' and utterance[0] == '"':
       utterance = utterance[1:-1]
     lm += answer_stop
     lm = model.select(
@@ -95,7 +101,7 @@ def prompt_converse_utterance_in_group(
     else:
       lm += "\n"
       lm += next_speaker
-      options = [t.name for t in target_personas]
+      options = [t.identity.name for t in target_personas]
       lm = model.select(
           lm,
           name="next_speaker",
@@ -111,7 +117,7 @@ def prompt_converse_utterance_in_group(
           f" {utterance_ended}\nNEXT SPEAKER: {next_speaker}\n"
       )
 
-  model.end_chain(init_persona.name, lm)
+  model.end_chain(init_persona.identity.name, lm)
   return utterance, utterance_ended, next_speaker, lm.html()
 
 
@@ -127,7 +133,7 @@ def prompt_summarize_conversation_in_one_sentence(
   )
 
   with user():
-    lm += f"Conversation:\n"
+    lm += "Conversation:\n"
     lm += f"{conversation_to_string_with_dash(conversation)}\n\n"
     lm += "Summarize the conversation above in one sentence."
   with assistant():

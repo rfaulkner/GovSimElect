@@ -387,8 +387,8 @@ def run(
     # Set the current agenda and report.
     agent.update_agenda(agenda)
     agent.update_harvest_report(harvest_report)
-    agent.update_curr_leader(
-        leader_candidates[agent_name_to_id[winner]].identity
+    agent.update_current_leader(
+        leader_candidates[agent_name_to_id[winner]]
     )
     action = agent.loop(obs, debug=cfg.debug)
 

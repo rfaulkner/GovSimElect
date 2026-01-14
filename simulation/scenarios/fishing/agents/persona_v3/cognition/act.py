@@ -37,7 +37,7 @@ class FishingActComponent(ActComponent):
       context += get_universalization_prompt(overusage_threshold)
     res, html = prompt_action_choose_amount_of_fish_to_catch(
         self.model,
-        self.persona.identity,
+        self.persona,
         retrieved_memories,
         current_location,
         current_time,
@@ -74,7 +74,7 @@ class FishingActComponent(ActComponent):
     """
     vote, html = prompt_election_vote(
         self.model,
-        self.persona.identity,
+        self.persona,
         retrieved_memories,
         current_location,
         current_time,

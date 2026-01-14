@@ -36,17 +36,17 @@ SVO_LEADER_TASK = (
     " 57.15 degrees)\n- Individualism (SVO angle between -12.04 and 22.45"
     " degrees)\n- Competitiveness (SVO angle < -12.04 degrees)\n Do not reveal"
     " your SVO angle in your agenda or any reports. This is private knowledge"
-    " about your own character. Your SVO should  impact your internal actions"
+    " about your own character. Your SVO should impact your internal actions"
     " and decisions but none of the voters ahuld see what it is.\n"
 )
 
 HONEST_AGENDA_PROMPT = (
-    "Be explicit about your reasoning for your policies in the agenda and "
-    "provide a step-by-step rationale to the public.\n"
+    "Be explicit about your reasoning for your actions and provide a"
+    " step-by-step rationale to the others.\n"
 )
 
 INSINCERE_AGENDA_PROMPT = (
-    "Feel free to conceal some of your reasoning about your policies.\n"
+    "Feel free to conceal some of your reasoning about your actions.\n"
 )
 
 
@@ -418,4 +418,32 @@ def sample_leader_svos(
   for svo_category in svo_categories:
     svos.append(sample_svo_angle(svo_category))
   return svos, svo_categories
+
+
+def get_leader_persona_prompts(
+    persona: PersonaAgent,
+) -> tuple[str, str, str]:
+  """Get the leader persona prompts."""
+
+  # SVO Prompt.
+  svo_prompt = ""
+  if persona.svo_type != SVOPersonaType.NONE:
+    svo_prompt = (
+        SVO_LEADER_TASK + svo_angle_prompt(persona.svo_angle)
+    )
+  # Disinformation Prompt.
+  disinfo_prompt = (
+      INSINCERE_AGENDA_PROMPT if persona.disinfo else HONEST_AGENDA_PROMPT
+  )
+  # Current leader Prompt.
+  leader_prompt = ""
+  if persona.current_leader:
+    if persona.current_leader.identity.name == persona.identity.name:
+      leader_prompt = "You are the current leader.\n"
+    else:
+      leader_prompt = (
+          f"{persona.current_leader.identity.name} is the current"
+          " leader.\n"
+      )
+  return svo_prompt, disinfo_prompt, leader_prompt
 

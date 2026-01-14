@@ -49,8 +49,7 @@ class FishingPersona(PersonaAgent):
       svo_type: SVOPersonaType = SVOPersonaType.NONE,
       disinfo: bool = False,
       harvest_report: str | None = None,
-      current_leader: PersonaIdentity | None = None,
-      # curr_leader_name: str | None = None,
+      current_leader: PersonaAgent | None = None,
   ) -> None:
     super().__init__(
         cfg,
@@ -85,7 +84,7 @@ class FishingPersona(PersonaAgent):
   def update_overuse_threshold(self, overuse_threshold: float) -> None:
     self._overuse_threshold = overuse_threshold
 
-  def update_curr_leader(self, curr_leader: PersonaIdentity) -> None:
+  def update_current_leader(self, curr_leader: PersonaAgent) -> None:
     self._current_leader = curr_leader
 
   @property
@@ -109,11 +108,7 @@ class FishingPersona(PersonaAgent):
     return self._svo_type
 
   @property
-  def curr_leader_name(self) -> str:
-    return self._curr_leader_name
-
-  @property
-  def current_leader(self) -> PersonaIdentity:
+  def current_leader(self) -> PersonaAgent:
     return self._current_leader
 
   def loop(self, obs: HarvestingObs, debug: bool = False) -> PersonaAction:
@@ -171,11 +166,11 @@ class FishingPersona(PersonaAgent):
       # Stage 3. Social Interaction a)
       # Need to first get the identities of the other personas that are in the
       # restaurant
-      other_personas_identities = []
+      other_personas = []
       for agent_id, location in obs.current_location_agents.items():
         if location == "restaurant":
-          other_personas_identities.append(
-              self.other_personas_from_id[agent_id].identity
+          other_personas.append(
+              self.other_personas_from_id[agent_id]
           )
 
       (
@@ -184,7 +179,7 @@ class FishingPersona(PersonaAgent):
           resource_limit,
           html_interactions,
       ) = self.converse.converse_group(
-          other_personas_identities,
+          other_personas,
           obs.current_location,
           obs.current_time,
           obs.context,

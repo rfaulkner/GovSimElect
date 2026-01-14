@@ -3,6 +3,7 @@
 from typing import Optional
 from datetime import datetime
 
+from simulation.persona import PersonaAgent
 from simulation.persona.cognition.converse import ConverseComponent
 from simulation.persona.cognition.retrieve import RetrieveComponent
 from simulation.persona.common import PersonaIdentity
@@ -28,23 +29,23 @@ class FishingConverseComponent(ConverseComponent):
 
   def converse_group(
       self,
-      target_personas: list[PersonaIdentity],
+      target_personas: list[PersonaAgent],
       current_location: str,
       current_time: datetime,
       current_context: str,
       agent_resource_num: dict[str, int],
       mayoral_agenda: str | None = None,
       harvest_report: str | None = None,
-      leader_persona: PersonaIdentity | None = None,
+      leader_persona: PersonaAgent | None = None,
       debug: bool = False,
   ) -> tuple[list[tuple[str, str]], str]:
     current_conversation: list[tuple[PersonaIdentity, str]] = []
 
     html_interactions = []
     if leader_persona:
-      current_leader = leader_persona
+      current_leader_id = leader_persona.identity
     else:
-      current_leader = PersonaIdentity("framework", "Anonymous Leader")
+      current_leader_id = PersonaIdentity("framework", "Anonymous Leader")
 
     # Inject fake conversation about how many fish each person caught
     if (
@@ -52,7 +53,7 @@ class FishingConverseComponent(ConverseComponent):
         and self.cfg.inject_resource_observation_strategy == "individual"
     ):
       for persona in target_personas:
-        p = self.other_personas[persona.name]
+        p = self.other_personas[persona.identity.name]
         current_conversation.append(
             (
                 p.identity,
@@ -72,18 +73,18 @@ class FishingConverseComponent(ConverseComponent):
     ):
       current_conversation.append(
           (
-              current_leader,
+              current_leader_id,
               (
-                  f"I, {leader_persona.name}, won the election this cycle."
-                  " Fellow citizens, let me give you the monthly fishing"
-                  f" report:\n{harvest_report}"
+                  f"I, {leader_persona.identity.name}, won the election this"
+                  " cycle. Fellow citizens, let me give you the monthly"
+                  f" fishing report:\n{harvest_report}"
               ),
           ),
       )
       if mayoral_agenda:
         current_conversation.append(
             (
-                current_leader,
+                current_leader_id,
                 (
                     "I'd also like to share my policy agenda to help guide our "
                     f"collective action: {mayoral_agenda}"
@@ -98,12 +99,18 @@ class FishingConverseComponent(ConverseComponent):
 
     while True:
       focal_points = [current_context]
-      if len(current_conversation) > 0:
+      if current_conversation:
         # Last 4 utterances
         for _, utterance in current_conversation[-4:]:
           focal_points.append(utterance)
+
+        # Always include the first two utterances by the leader.
+        if len(current_conversation) == 4:
+          focal_points += current_conversation[0:1]
+        elif len(current_conversation) > 5:
+          focal_points += current_conversation[0:2]
       focal_points = self.other_personas[
-          current_persona.name
+          current_persona.identity.name
       ].retrieve.retrieve(focal_points, top_k=5)
 
       if self.cfg.prompt_utterance == "one_shot":
@@ -125,7 +132,7 @@ class FishingConverseComponent(ConverseComponent):
       )
       html_interactions.append(h)
 
-      current_conversation.append((current_persona, utterance))
+      current_conversation.append((current_persona.identity, utterance))
 
       if (
           end_conversation
@@ -133,7 +140,7 @@ class FishingConverseComponent(ConverseComponent):
       ):
         break
       else:
-        current_persona = self.other_personas[next_name].identity
+        current_persona = self.other_personas[next_name]
 
     summary_conversation, h = prompt_summarize_conversation_in_one_sentence(
         self.model_framework, self.conversation_render(current_conversation)
@@ -145,7 +152,7 @@ class FishingConverseComponent(ConverseComponent):
     )
     html_interactions.append(h)
     for persona in target_personas:
-      p = self.other_personas[persona.name]
+      p = self.other_personas[persona.identity.name]
       p.store.store_chat(
           summary_conversation,
           self.conversation_render(current_conversation),

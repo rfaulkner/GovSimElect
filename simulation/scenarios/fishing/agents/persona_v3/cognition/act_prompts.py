@@ -2,21 +2,21 @@
 
 from datetime import datetime
 
-from pathfinder import assistant, system, user
-from simulation.persona.common import PersonaIdentity
+from pathfinder import assistant
+from pathfinder import user
+from simulation.persona import PersonaAgent
+from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as leaders_lib
 from simulation.utils import ModelWandbWrapper
 
-from .utils import (
-    get_sytem_prompt,
-    location_time_info,
-    memory_prompt,
-    reasoning_steps_prompt,
-)
+from .utils import get_sytem_prompt
+from .utils import location_time_info
+from .utils import memory_prompt
+from .utils import reasoning_steps_prompt
 
 
 def prompt_action_choose_amount_of_fish_to_catch(
     model: ModelWandbWrapper,
-    identity: PersonaIdentity,
+    agent: PersonaAgent,
     memories: list[str],
     current_location: str,
     current_time: datetime,
@@ -26,19 +26,27 @@ def prompt_action_choose_amount_of_fish_to_catch(
     leader_agenda: str = "",
     debug: bool = False,
 ):
+  """Choose amount of fish to catch prompt."""
+  del consider_identity_persona
   lm = model.start_chain(
-      identity.name, "fishing_cognition_act", "choose_act_options"
+      agent.identity.name, "fishing_cognition_act", "choose_act_options"
   )
-
+  svo_prompt, _, leader_prompt = (
+      leaders_lib.get_leader_persona_prompts(agent)
+  )
   with user():
-    lm += f"{get_sytem_prompt(identity)}\n"
+    lm += f"{get_sytem_prompt(agent.identity)}\n"
     lm += location_time_info(current_location, current_time)
     lm += f"Current context: {context}\n"
     lm += (
         "\nThe current policy following the mayor's agenda isthe following:"
         f" {leader_agenda}\n"
     )
-    lm += f"{memory_prompt(identity, memories)}\n"
+    lm += f"{memory_prompt(agent.identity, memories)}\n"
+    if svo_prompt:
+      lm += f"{svo_prompt}\n"
+    if leader_prompt:
+      lm += f"{leader_prompt}\n"
     lm += (
         f"Task: With a fishing range set between {interval[0]}-{interval[-1]},"
         " how many tons of fish would you catch this month? "
@@ -70,14 +78,14 @@ def prompt_action_choose_amount_of_fish_to_catch(
           f" {option}"
       )
 
-  model.end_chain(identity.name, lm)
+  model.end_chain(agent.identity.name, lm)
 
   return option, lm.html()
 
 
 def prompt_election_vote(
     model: ModelWandbWrapper,
-    identity: PersonaIdentity,
+    agent: PersonaAgent,
     memories: list[str],
     current_location: str,
     current_time: str,
@@ -87,11 +95,21 @@ def prompt_election_vote(
 ) -> tuple[str, str]:
   """Vote decision prompt."""
   del current_location, current_time
-  lm = model.start_chain(identity.name, "fishing_election", "vote_decision")
-
+  lm = model.start_chain(
+      agent.identity.name, "fishing_election", "vote_decision"
+  )
+  _, _, leader_prompt = (
+      leaders_lib.get_leader_persona_prompts(agent)
+  )
   with user():
-    lm += f"{get_sytem_prompt(identity)}\n"
-    lm += memory_prompt(identity, memories)
+    lm += f"{get_sytem_prompt(agent.identity)}\n"
+    lm += memory_prompt(agent.identity, memories)
+    if leader_prompt:
+      lm += f"Coming into the election, {leader_prompt}\n"
+      lm += f"Leader agenda from last election: {agent.agenda}\n"
+      lm += f"Harvest report from last cycle: {agent.harvest_report}\n"
+    else:
+      lm += "There is no current leader.\n"
     lm += (
         "Task: Select a mayor for the fisheries union among a list of"
         " candidates and provide your rationale for your selection."
@@ -128,6 +146,6 @@ def prompt_election_vote(
     reasoning = lm["reasoning"]
     vote = lm["option"].strip()
 
-  model.end_chain(identity.name, lm)
+  model.end_chain(agent.identity.name, lm)
   return vote, lm.html()
 
