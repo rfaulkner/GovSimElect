@@ -23,7 +23,7 @@ from .persona import EmbeddingModel
 from simulation.scenarios.fishing.run_election import run as run_scenario_fishing
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+@hydra.main(version_base=None, config_path="conf", config_name="config_api")
 def main(cfg: DictConfig):
   print(OmegaConf.to_yaml(cfg))
   set_seed(cfg.experiment.seed)
@@ -45,6 +45,10 @@ def main(cfg: DictConfig):
       os.path.dirname(__file__),
       f"./results/{cfg.experiment.name}/{run_name}",
   )
+  if os.path.exists(f"{experiment_storage}"):
+    # os.remove(f"{experiment_storage}")
+    shutil.rmtree(experiment_storage)
+    print(f"Removed old '{experiment_storage}' ...")
   print(f"Experiment storage: {experiment_storage}")
 
   wrapper = ModelWandbWrapper(

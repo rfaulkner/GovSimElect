@@ -1,5 +1,7 @@
 """Handling conversation among the personas."""
 
+import random
+
 from typing import Optional
 from datetime import datetime
 
@@ -17,6 +19,7 @@ from .reflect_prompts import prompt_find_harvesting_limit_from_conversation
 
 
 class FishingConverseComponent(ConverseComponent):
+  """Fishing converse component."""
 
   def __init__(
       self,
@@ -25,7 +28,7 @@ class FishingConverseComponent(ConverseComponent):
       retrieve: RetrieveComponent,
       cfg,
   ):
-    super().__init__(model, model_framework, retrieve, cfg)
+    super(model, model_framework, retrieve, cfg)
 
   def converse_group(
       self,
@@ -75,13 +78,13 @@ class FishingConverseComponent(ConverseComponent):
           (
               current_leader_id,
               (
-                  f"I, {leader_persona.identity.name}, won the election this"
+                  f"I, {current_leader_id.name}, will lead the group this"
                   " cycle. Fellow citizens, let me give you the monthly"
                   f" fishing report:\n{harvest_report}"
               ),
           ),
       )
-      if mayoral_agenda:
+      if mayoral_agenda and leader_persona:
         current_conversation.append(
             (
                 current_leader_id,
@@ -94,8 +97,11 @@ class FishingConverseComponent(ConverseComponent):
 
     max_conversation_steps = self.cfg.max_conversation_steps
 
-    # Always open with the leader.
-    current_persona = leader_persona
+    # Always open with the leader if there is one, otherwise choose randomly.
+    if leader_persona:
+      current_persona = leader_persona
+    else:
+      current_persona = random.choice(target_personas)
 
     while True:
       focal_points = [current_context]

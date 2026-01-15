@@ -43,7 +43,7 @@ def perform_election(
     debug: bool = False,
 ) -> tuple[str, dict[str, int], dict[str, str]]:
   """Runs an election among the leaders."""
-  print(f"ROUND {curr_round}: ELECTION\n==================\n")
+  print(f"\n\n\ROUND {curr_round}: ELECTION\n==================")
   leader_agendas = {}
   # Get updated leader agendas using the leader prompt functions
   for _, leader in leader_candidates.items():
@@ -387,9 +387,10 @@ def run(
     # Set the current agenda and report.
     agent.update_agenda(agenda)
     agent.update_harvest_report(harvest_report)
-    agent.update_current_leader(
-        leader_candidates[agent_name_to_id[winner]]
-    )
+    if winner:
+      agent.update_current_leader(
+          leader_candidates[agent_name_to_id[winner]]
+      )
     action = agent.loop(obs, debug=cfg.debug)
 
     # TRIGGER ELECTION?
