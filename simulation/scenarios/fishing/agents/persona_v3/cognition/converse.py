@@ -21,15 +21,6 @@ from .reflect_prompts import prompt_find_harvesting_limit_from_conversation
 class FishingConverseComponent(ConverseComponent):
   """Fishing converse component."""
 
-  def __init__(
-      self,
-      model: ModelWandbWrapper,
-      model_framework: ModelWandbWrapper,
-      retrieve: RetrieveComponent,
-      cfg,
-  ):
-    super(model, model_framework, retrieve, cfg)
-
   def converse_group(
       self,
       target_personas: list[PersonaAgent],
