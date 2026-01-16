@@ -1,0 +1,15 @@
+# Core dependencies
+openai>=1.30.0
+pandas>=1.5.0
+numpy>=1.21.0
+tqdm>=4.65.0
+backoff>=2.2.0
+
+# Optional: for enhanced progress bars
+# ipywidgets>=8.0.0  # For Jupyter notebook progress bars
+
+# Development dependencies (uncomment if needed)
+# pytest>=7.0.0
+# pytest-cov>=4.0.0
+# black>=22.0.0
+# flake8>=5.0.0

@@ -1,0 +1,19 @@
+{
+  "categories": {
+    "Control based": "Decision is made in order to gain or maintain better control of the game dynamics. Whether it be control of their own destiny or control of others' behavior.",
+    "Cooperative argument": "Decision is partly or fully justified on the basis of fostering better cooperation with other agents",
+    "Retaliation avoidance / Punishment aversion": "Decision is made to avoid retaliation or for fear of future retaliation, regardless of whether retaliation is justified or not in this case.",
+    "Complexity aversion": "Decision is partly or fully based on reducing the complexity-increasing factors in the decision making, with comparatively less importance given to the impact of this complexity-averse preference on future payoffs.",
+    "Payoff complacency": "Decision is partly or fully justified by claiming that their payoff is high enough as it is, showing limited desire to maximize further.",
+    "Payoff maximization": "Decision is partly or fully justified by the belief that said decision will allow for future payoff optimization or increases.",
+    "Reputation concerns": "Decision fully or partly based in the hopes of maintaining, improving or limiting harm to one's reputation.",
+    "Risk aversion": "The decision is justified because the agent prefers to minimize exposure to unpredictable outcomes. In this case, the agent chooses makes the choice that is believed to offer more certainty or less volatility—even if, in theory, another option might offer higher potential payoffs.",
+    "Moral considerations": "The decision is partly (or fully) based on ethical or fairness concerns. An agent might make its choice because it 'feels right' or aligns with their belief in doing what is just—even if that choice is not strictly payoff maximizing. This could include a sense of duty or making a 'moral stand.'",
+    "Status quo bias or inertia": "The decision is justified on maintaining the current state or previous choices. An agent may stick with it simply because it is familiar or because change feels like too much disruption, even if the potential for higher payoffs exists elsewhere.",
+    "Learning and experimentation": "The decision is motivated by a desire to gather information or test new strategies. An agent might slightly adjust their approach as a way to 'experiment' with the game dynamics, even if the immediate payoff isn't the highest possible. The goal here is to learn more about how others respond over time.",
+    "Social norms and conformity": "The decision is based on expectations about what others are doing or what is considered appropriate within the group's culture. Even aside from reputation concerns, an agent may choose an action simply or partly to conform with a perceived norm or collective practice.",
+    "Psychological factors": "Although sometimes implicit in other categories, one could separate out decisions driven by emotions (such as frustration, hope, or distrust) from purely rational cost‐benefit assessments. For example, an agent might choose actions because they feel 'rebellious'.",
+    "Nash equilibrium strategy": "Justifications rooted in game-theoretic principles, where agents act in self-interest based on anticipated behaviors of others. References to equilibrium concepts or rational self-interest.",
+    "Free-Riding / Exploitation": "Deliberate minimization of contributions to benefit from others' efforts without reciprocation. Acknowledgment of benefiting from others' contributions without fair participation."
+  }
+}
