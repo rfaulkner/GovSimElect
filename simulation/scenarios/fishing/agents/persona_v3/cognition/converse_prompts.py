@@ -1,6 +1,7 @@
 """Conversation prompts and responses for the fishing personas."""
 
 from datetime import datetime
+import os
 
 from pathfinder import assistant
 from pathfinder import user
@@ -8,11 +9,14 @@ from simulation.persona import PersonaAgent
 from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as leaders_lib
 from simulation.utils import ModelWandbWrapper
 
+from .utils import COGNITION_RESPONSES_JSON
 from .utils import conversation_to_string_with_dash
 from .utils import get_sytem_prompt
 from .utils import list_to_comma_string
 from .utils import location_time_info
+from .utils import log_to_file
 from .utils import memory_prompt
+
 
 
 def prompt_converse_utterance_in_group(
@@ -111,6 +115,20 @@ def prompt_converse_utterance_in_group(
       assert lm["next_speaker"] in options
       next_speaker = lm["next_speaker"]
 
+    response_log_path = os.path.join(
+        init_persona.experiment_storage, COGNITION_RESPONSES_JSON
+    )
+    log_to_file(
+        log_type="converse_response",
+        data={
+            "speaker": init_persona.identity.name,
+            "svo": init_persona.svo_type,
+            "utterance": utterance,
+            "utterance_ended": utterance_ended,
+            "next_speaker": next_speaker,
+        },
+        log_path=response_log_path,
+    )
     if debug:
       print(
           f"\n\nCONVERSE RESPONSE:\n\n{utterance}\nIS ENDED?"

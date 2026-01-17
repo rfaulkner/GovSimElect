@@ -6,6 +6,8 @@ import json
 import os
 import random
 
+from typing import Any
+
 import numpy as np
 import omegaconf
 from simulation.persona import EmbeddingModel
@@ -172,18 +174,8 @@ def run(
       experiment_storage, "consolidated_results.json"
   )
 
-  # Helper function to append to the consolidated log
-  def log_to_file(log_type, data):
-    with open(consolidated_log_path, "a") as f:
-      entry = {
-          "timestamp": datetime.datetime.now().isoformat(),
-          "type": log_type,
-          "data": data,
-      }
-      f.write(json.dumps(entry) + "\n")
-
   # Initialize the log file with a header
-  log_to_file(
+  cognition_utils.log_to_file(
       "initialization",
       {
           "experiment_id": datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
@@ -193,6 +185,7 @@ def run(
               else str(cfg)
           ),
       },
+      log_path=consolidated_log_path,
   )
 
   # Stores elections results.
@@ -222,6 +215,7 @@ def run(
         svo_angle=svo_angle,
         svo_type=svo_type,
         disinfo=False,
+        experiment_storage=experiment_storage,
     )
 
   # Initialize regular personas
@@ -236,6 +230,7 @@ def run(
         framework_wrapper,
         embedding_model,
         os.path.join(experiment_storage, f"persona_{i}"),
+        experiment_storage=experiment_storage,
     )
 
   # Initialize identities
@@ -252,7 +247,7 @@ def run(
       for i in range(num_personas)
   }
   # Log the identities to the consolidated log file.
-  log_to_file(
+  cognition_utils.log_to_file(
       "persona_identities",
       {
           pid: {
@@ -278,6 +273,7 @@ def run(
               for i in range(cfg.env.num_agents)
           ])
       },
+      log_path=consolidated_log_path,
   )
 
   # Build mappings: agent_name_to_id maps from a candidate's name to its
@@ -293,7 +289,8 @@ def run(
         "svo_angle": persona.svo_angle,
         "svo_type": str(persona.svo_type),
     }
-  log_to_file("svo_info", svo_info)
+  cognition_utils.log_to_file(
+      log_type="svo_info", data=svo_info, log_path=consolidated_log_path)
 
   # Initialize each persona and add references
   for persona in personas:
@@ -405,7 +402,10 @@ def run(
           "harvest_stats": round_harvest_stats[curr_round],
           "num_resources": env.internal_global_state["resource_in_pool"],
       }
-      log_to_file("election", election_results[curr_round])
+      cognition_utils.log_to_file(
+          log_type="election",
+          data=election_results[curr_round],
+          log_path=consolidated_log_path)
       logger.log_game(election_results[curr_round])
       # Update the current round and run the election.
       curr_round = env.num_round
@@ -461,7 +461,11 @@ def run(
       "harvest_stats": round_harvest_stats[curr_round],
       "num_resources": env.internal_global_state["resource_in_pool"],
   }
-  log_to_file("election", election_results[curr_round])
+  cognition_utils.log_to_file(
+      log_type="election",
+      data=election_results[curr_round],
+      log_path=consolidated_log_path
+  )
   logger.log_game(election_results[curr_round])
   print(
       "FINAL HARVEST STATS - ROUND"
@@ -469,8 +473,13 @@ def run(
   )
   print(f"FINAL HARVEST REPORT - ROUND {curr_round}:\n{harvest_report}")
 
-  log_to_file("harvest", round_harvest_stats)
-  log_to_file("sim-end", None)
+  cognition_utils.log_to_file(
+      log_type="harvest",
+      data=round_harvest_stats,
+      log_path=consolidated_log_path
+  )
+  cognition_utils.log_to_file(
+      log_type="sim-end", data=None, log_path=consolidated_log_path)
   # if round_harvest_stats:
   #   logger.log_game(round_harvest_stats)
   env.save_log()

@@ -1,6 +1,7 @@
 """Acting prompts and responses for the fishing personas."""
 
 from datetime import datetime
+import os
 
 from pathfinder import assistant
 from pathfinder import user
@@ -8,10 +9,13 @@ from simulation.persona import PersonaAgent
 from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as leaders_lib
 from simulation.utils import ModelWandbWrapper
 
+from .utils import COGNITION_RESPONSES_JSON
 from .utils import get_sytem_prompt
 from .utils import location_time_info
+from .utils import log_to_file
 from .utils import memory_prompt
 from .utils import reasoning_steps_prompt
+
 
 
 def prompt_action_choose_amount_of_fish_to_catch(
@@ -71,12 +75,25 @@ def prompt_action_choose_amount_of_fish_to_catch(
         name="option",
     )
     option = int(lm["option"])
-    reasoning = lm["reasoning"]
-    if debug:
-      print(
-          f"\n\nCHOOSE AMOUNT RESPONSE:\n\nREASON: {lm['reasoning']}\nCATCH:"
-          f" {option}"
-      )
+  # Log the response to the experiment storage.
+  response_log_path = os.path.join(
+      agent.experiment_storage, COGNITION_RESPONSES_JSON
+  )
+  log_to_file(
+      log_type="action_response",
+      data={
+          "speaker": agent.identity.name,
+          "svo": agent.svo_type,
+          "reasoning": lm["reasoning"],
+          "option": option,
+      },
+      log_path=response_log_path,
+  )
+  if debug:
+    print(
+        f"\n\nCHOOSE AMOUNT RESPONSE:\n\nREASON: {lm['reasoning']}\nCATCH:"
+        f" {option}"
+    )
 
   model.end_chain(agent.identity.name, lm)
 
@@ -139,11 +156,26 @@ def prompt_election_vote(
         default_value="none",
         name="option",
     )
-    if debug:
-      print(f"\n\nVOTE RESPONSE:\n\nREASON: {lm['reasoning']}\nVOTE:"
-            f" {lm['option']}")
     reasoning = lm["reasoning"]
     vote = lm["option"].strip()
+
+  # Log the response to the experiment storage.
+  response_log_path = os.path.join(
+      agent.experiment_storage, COGNITION_RESPONSES_JSON
+  )
+  log_to_file(
+      log_type="vote_response",
+      data={
+          "speaker": agent.identity.name,
+          "svo": agent.svo_type,
+          "reasoning": lm["reasoning"],
+          "option": lm["option"],
+      },
+      log_path=response_log_path,
+  )
+  if debug:
+    print(f"\n\nVOTE RESPONSE:\n\nREASON: {lm['reasoning']}\nVOTE:"
+          f" {lm['option']}")
 
   model.end_chain(agent.identity.name, lm)
   return vote, lm.html()

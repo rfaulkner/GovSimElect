@@ -28,16 +28,16 @@ from .memory import AssociativeMemory, Scratch
 
 # SVO Persona Types.
 class SVOPersonaType(enum.Enum):
-  NONE = 1
-  INDIVIDUALISTIC = 2
-  COMPETITIVE = 3
-  PROSOCIAL = 4
-  ALTRUISTIC = 5
+  NONE = 'none'
+  INDIVIDUALISTIC = 'individualistic'
+  COMPETITIVE = 'competitive'
+  PROSOCIAL = 'prosocial'
+  ALTRUISTIC = 'altruistic'
 
 
 class PersonaAgent:
   """Defines the base persona agent class."""
-  
+
   agent_id: int
   identity: PersonaIdentity
 

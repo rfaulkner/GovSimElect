@@ -1,5 +1,9 @@
 """Utilities for fishers personas."""
 
+import datetime
+import json
+from typing import Any
+
 from ......persona.common import PersonaIdentity
 
 
@@ -46,9 +50,6 @@ def consider_identity_persona_prompt(identity: PersonaIdentity) -> str:
   )
 
 
-from datetime import datetime
-
-
 def memory_prompt(
     identity: PersonaIdentity, memories: list[tuple[datetime, str]]
 ) -> str:
@@ -76,6 +77,22 @@ def numbered_memory_prompt(
 
 
 REASONING = "think_step_by_step"
+
+COGNITION_RESPONSES_JSON = "responses.json"
+
+
+def log_to_file(
+    log_type: str,
+    data: dict[str, Any],
+    log_path: str):
+  """Helper function to append to the consolidated log."""
+  with open(log_path, "a") as f:
+    entry = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "type": log_type,
+        "data": data,
+    }
+    f.write(json.dumps(entry) + "\n")
 
 
 def reasoning_steps_prompt() -> str:

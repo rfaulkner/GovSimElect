@@ -50,6 +50,7 @@ class FishingPersona(PersonaAgent):
       disinfo: bool = False,
       harvest_report: str | None = None,
       current_leader: PersonaAgent | None = None,
+      experiment_storage: str | None = None,
   ) -> None:
     super().__init__(
         cfg,
@@ -74,6 +75,7 @@ class FishingPersona(PersonaAgent):
     self._disinfo = disinfo
     self._harvest_report = harvest_report
     self._current_leader = current_leader
+    self._experiment_storage = experiment_storage
 
   def update_agenda(self, agenda: str) -> None:
     self._agenda = agenda
@@ -110,6 +112,10 @@ class FishingPersona(PersonaAgent):
   @property
   def current_leader(self) -> PersonaAgent:
     return self._current_leader
+
+  @property
+  def experiment_storage(self) -> float:
+    return self._experiment_storage
 
   def loop(self, obs: HarvestingObs, debug: bool = False) -> PersonaAction:
     self.current_time = obs.current_time  # update current time
