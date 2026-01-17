@@ -126,7 +126,7 @@ class FishingConverseComponent(ConverseComponent):
           current_time,
           current_context,
           self.conversation_render(current_conversation),
-          self.cfg.debug,
+          debug,
       )
       html_interactions.append(h)
 

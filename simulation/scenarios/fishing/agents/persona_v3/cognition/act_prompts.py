@@ -83,7 +83,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
       log_type="action_response",
       data={
           "speaker": agent.identity.name,
-          "svo": agent.svo_type,
+          "svo": agent.svo_type.value,
           "reasoning": lm["reasoning"],
           "option": option,
       },
@@ -167,7 +167,7 @@ def prompt_election_vote(
       log_type="vote_response",
       data={
           "speaker": agent.identity.name,
-          "svo": agent.svo_type,
+          "svo": agent.svo_type.value,
           "reasoning": lm["reasoning"],
           "option": lm["option"],
       },

@@ -122,7 +122,7 @@ def prompt_converse_utterance_in_group(
         log_type="converse_response",
         data={
             "speaker": init_persona.identity.name,
-            "svo": init_persona.svo_type,
+            "svo": init_persona.svo_type.value,
             "utterance": utterance,
             "utterance_ended": utterance_ended,
             "next_speaker": next_speaker,
