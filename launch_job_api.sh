@@ -4,11 +4,11 @@
 #SBATCH --job-name=govsim_elect
 #SBATCH --output=slurm/output/%j_%x.out
 
-#SBATCH --time=0-12:00:00
+#SBATCH --time=0-4:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=40G
+#SBATCH --mem=4G
 
 # Gemma-3 / Gemini
 # model_id="openrouter-google/gemma-3-27b-it"
@@ -63,7 +63,7 @@ else
 fi
 
 # Check if the first argument ($3) is empty
-if [ -z "$1" ]; then
+if [ -z "$3" ]; then
   # If empty, assign a default value to a new variable
   ARG3=true
 else
