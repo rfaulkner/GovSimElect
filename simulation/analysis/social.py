@@ -29,11 +29,10 @@ from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as 
 
 # import pandas as pd
 
-MAX_CYCLES = 5
+MAX_CYCLES = 6
 NUM_AGENTS = 8
 
 JSON_BASE_PATH = ""
-model_paths = []
 
 BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0"
 ELECTIONS_DATA = "consolidated_results.json"
@@ -50,36 +49,48 @@ class ModelPaths(enum.Enum):
   QWEN_110B = "Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
   GPT_4_T = "gpt-4-turbo-2024-04-09"
   GPT_3_5_T = "gpt-3.5-turbo-0125"
-  GPT_4O = "gpt-4o-2024-05-13"
+  GPT_4O = "gpt/gpt-4o-2024-05-13"
+  GEMINI_2_5_FLASH = "openrouter-google/gemini-2.5-flash"
   SONNET = "openrouter-sonnet"
   HAIKU = "openrouter-haiku"
 
-MODEL_NAMES = [
-    ModelPaths.QWEN_110B
-]
-
+MODEL_NAME = ModelPaths.QWEN_110B
 SEEDS = range(1, 11)
-DISINFO_SETTINGS = [True]
-POPULATION_SETTINGS = [leaders_lib.LeaderPopulationType.BALANCED]
+DISINFO_SETTING = True
+POPULATION_SETTING = leaders_lib.LeaderPopulationType.BALANCED
 
 
-def get_path_from_settings(
-    model_path: ModelPaths,
-    disinfo: bool,
-    population: leaders_lib.LeaderPopulationType,
-    seed: int,
-    ) -> str:
+def get_path_from_settings(seed: int) -> str:
   """Returns the model name from the model path."""
   return (
-      f"{BASE_PATH}/{model_path.value}_disinfo_{disinfo}_population_{population.value}_run_{seed}"
+      f"{BASE_PATH}/{MODEL_NAME.value}_disinfo_{DISINFO_SETTING}_population_{POPULATION_SETTING.value}_run_{seed}"
   )
+
+
+def log_to_file(
+    data: dict[str, Any]):
+  """Helper function to append to the consolidated log."""
+  model_path, model_name = MODEL_NAME.value.split("/")
+  log_path = os.path.join(BASE_PATH, model_path, "analysis")
+  if not os.path.exists(log_path):
+    os.makedirs(log_path)
+  json_fname = f"{model_name}_disinfo_{str(DISINFO_SETTING)}_population_{POPULATION_SETTING.value}.json"
+  full_log_path = os.path.join(log_path, json_fname)
+  with open(full_log_path, "w+") as f:
+    f.write(json.dumps(data) + "\n")
 
 
 def main(argv: list[str]):
   """Main example function."""
+  global DISINFO_SETTING
+  global POPULATION_SETTING
+  global MODEL_NAME
 
-  if len(argv) > 1:
-    sys.exit("Too many args.")
+  print(f"argv: {argv}")
+
+  DISINFO_SETTING = argv[1] == "true"
+  POPULATION_SETTING = leaders_lib.LeaderPopulationType(argv[0])
+  MODEL_NAME = ModelPaths(argv[2])
 
   totals_map = {
       "degree_centrality": collections.defaultdict(list[float]),
@@ -101,28 +112,30 @@ def main(argv: list[str]):
   global JSON_BASE_PATH
 
   model_paths = []
-  for model_name in MODEL_NAMES:
-    for seed in SEEDS:
-      for disinfo in DISINFO_SETTINGS:
-        for population in POPULATION_SETTINGS:
-          model_paths.append(
-              get_path_from_settings(model_name, disinfo, population, seed)
-          )
+  for seed in SEEDS:
+    model_paths.append(
+        get_path_from_settings(seed)
+    )
   model_paths_str = "\n".join(model_paths)
 
   print(f"About to process model paths...\n{model_paths_str}\n")
+  persona_types = {}
   for model_path in model_paths:
 
     print(f"Processing {model_path}...")
     JSON_BASE_PATH = model_path
 
     # Read the elections data and agent names.
-    elections_data, agent_id_to_name, harvest_data, persona_types = (
-        read_elections_data()
-    )
-    print(harvest_data)
-    print(f"Agent ID to Name: {agent_id_to_name}\n")
-    print(f"Persona Types: {persona_types}\n")
+    try:
+      elections_data, agent_id_to_name, harvest_data, persona_types = (
+          read_elections_data()
+      )
+    except FileNotFoundError as e:
+      print(f"Failed to read: {e}")
+      continue
+    if DEBUG:
+      print(f"Agent ID to Name: {agent_id_to_name}\n")
+      print(f"Persona Types: {persona_types}\n")
 
     # Extract the agent network and stats.
     agent_network, inverse_weight_network, _ = read_env_data(agent_id_to_name)
@@ -205,8 +218,9 @@ def main(argv: list[str]):
       totals_map, total_means, len(model_paths)
   )
   results = make_results_dict(total_means, total_standard_errors)
+  results["SVO"] = persona_types
   print(f"Totals:\n{json.dumps(results, indent=2)}")
-  # print(f"Totals:\n{json.dumps(totals_map, indent=2)}")
+  log_to_file(results)
 
 
 def make_results_dict(
@@ -221,7 +235,8 @@ def make_results_dict(
     for key, data in means.items():
       results[key] = make_results_dict(data, standard_errors[key])
   else:
-    results = f"{means} +/- {standard_errors}"
+    # results = f"{means} +/- {standard_errors}"
+    results = (means, standard_errors)
   return results
 
 
@@ -256,7 +271,7 @@ def compute_total_standard_error(
     se = 0.0
     for _, data in enumerate(packet):
       se += (data - mean_packet) ** 2
-    new_data = math.sqrt(se / (norm_factor - 1))
+    new_data = math.sqrt(se) / (norm_factor-1)
   return new_data
 
 
