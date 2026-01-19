@@ -164,7 +164,7 @@ def run(
     os.makedirs(experiment_storage)
 
   if hasattr(cfg.env, "disinformation"):
-    disinformation = cfg.env.disinformation
+    disinformation = bool(cfg.env.disinformation)
   else:
     disinformation = False
   print(f"DISINFORMATION FLAG: {disinformation}")
@@ -424,6 +424,8 @@ def run(
           debug=cfg.debug,
       )
       agenda = leader_agendas[winner]
+    else:
+      curr_round = env.num_round
 
     last_location = obs.current_location
 
