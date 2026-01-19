@@ -16,12 +16,15 @@
 #   sh launch_job_batch.sh
 
 # Population Settings
-populations=("balanced" "lean_altruistic" "lean_competitive" "one_prosocial" "one_competitive" "one_indvidualistic" "one_altruistic" "none")
+populations=("balanced" "lean_altruistic" "lean_competitive" "one_prosocial" "one_competitive" "one_individualistic" "one_altruistic" "none")
 
 # Disinfo Settings
 disinfo=(true false)
 
-model_name="Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
+# model_name="Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
+# model_name="gpt/gpt-4.1-2025-04-14"
+# model_name="gpt/gpt-4o-2024-05-13"
+model_name="openrouter-google/gemini-2.5-flash"
 
 # Launch 16 jobs
 for disinfo in "${disinfo[@]}"; do

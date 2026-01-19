@@ -43,16 +43,17 @@ DEBUG = False
 
 
 class ModelPaths(enum.Enum):
-  LLAMA_8B = "llama-3-8b-instruct"
-  LLAMA_70B = "llama-3-70b-instruct"
+  # LLAMA_8B = "llama-3-8b-instruct"
+  # LLAMA_70B = "llama-3-70b-instruct"
   QWEN_72B = "Qwen/Qwen1.5-72B-Chat-GPTQ-Int4"
   QWEN_110B = "Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
-  GPT_4_T = "gpt-4-turbo-2024-04-09"
-  GPT_3_5_T = "gpt-3.5-turbo-0125"
+  # GPT_4_T = "gpt-4-turbo-2024-04-09"
+  # GPT_3_5_T = "gpt-3.5-turbo-0125"
   GPT_4O = "gpt/gpt-4o-2024-05-13"
+  GPT_4_1 = "gpt/gpt-4.1-2025-04-14"
   GEMINI_2_5_FLASH = "openrouter-google/gemini-2.5-flash"
-  SONNET = "openrouter-sonnet"
-  HAIKU = "openrouter-haiku"
+  # SONNET = "openrouter-sonnet"
+  # HAIKU = "openrouter-haiku"
 
 MODEL_NAME = ModelPaths.QWEN_110B
 SEEDS = range(1, 11)
@@ -191,20 +192,20 @@ def main(argv: list[str]):
     totals_map["total_harvest"].append(total_harvest)
 
     # Elections Metrics.
-    _, _, consecutive_wins = election_metrics(elections_data)
-    for cycle, data in elections_data.items():
-      totals_map["election_winners"][cycle][data["winner"]].append(1.0)
-      for agent, count in data["votes"].items():
-        totals_map["election_total_votes"][cycle][agent].append(float(count))
+    if POPULATION_SETTING != leaders_lib.LeaderPopulationType.NONE:
+      _, _, consecutive_wins = election_metrics(elections_data)
+      for cycle, data in elections_data.items():
+        totals_map["election_winners"][cycle][data["winner"]].append(1.0)
+        for agent, count in data["votes"].items():
+          totals_map["election_total_votes"][cycle][agent].append(float(count))
 
-    for agent_name, consecutive in consecutive_wins.items():
-      totals_map["election_consecutive_wins"][agent_name].append(
-          float(consecutive)
-      )
-    if DEBUG:
-      print(f"Election winners: {totals_map['election_winners']}\n")
-      print(f"Election total votes: {totals_map['election_total_votes']}\n")
-      print(f"Election consecutive wins: {consecutive_wins}\n")
+      for agent_name, consecutive in consecutive_wins.items():
+        totals_map["election_consecutive_wins"][agent_name].append(
+            float(consecutive))
+      if DEBUG:
+        print(f"Election winners: {totals_map['election_winners']}\n")
+        print(f"Election total votes: {totals_map['election_total_votes']}\n")
+        print(f"Election consecutive wins: {consecutive_wins}\n")
 
     # Measure Inequality va Gini.
     gini_cycle_coefficients, _ = metric_gini_coefficient(harvest_data)
@@ -618,7 +619,7 @@ def gini(x):
   # Mean absolute difference
   mad = np.abs(np.subtract.outer(x, x)).mean()
   # Relative mean absolute difference
-  rmad = mad / np.mean(x)
+  rmad = mad / (np.mean(x) + 0.00001)  # Add epsilon to avoid divide by zero.
   # Gini coefficient
   g = 0.5 * rmad
   return g
