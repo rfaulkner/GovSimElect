@@ -335,6 +335,11 @@ def run(
     agenda = leader_agendas[winner]
 
   # Track harvest stats for each round.
+  round_stats = collections.defaultdict(
+      lambda: collections.defaultdict(int)
+  )
+
+  # Track harvest stats for each round.
   round_harvest_stats = collections.defaultdict(
       lambda: collections.defaultdict(int)
   )
@@ -349,6 +354,14 @@ def run(
         print(
             f"ROUND {curr_round}: DISCUSSION PHASE\n=========================\n"
         )
+      round_stats[curr_round] = {
+          "num_resources": env.internal_global_state["resource_in_pool"],
+          "regen_factor": env.internal_global_state["regen_factor"],
+      }
+      print(
+          f"ROUND {curr_round} ROUND STATS: "
+          f"{round_stats}"
+      )
       if leader_candidates:
         assert winner is not None
         harvest_report = leaders_lib.make_leader_report(
@@ -474,7 +487,11 @@ def run(
       f" {curr_round}:\n{round_harvest_stats[curr_round]}"
   )
   print(f"FINAL HARVEST REPORT - ROUND {curr_round}:\n{harvest_report}")
-
+  cognition_utils.log_to_file(
+      log_type="round_stats",
+      data=round_stats,
+      log_path=consolidated_log_path
+  )
   cognition_utils.log_to_file(
       log_type="harvest",
       data=round_harvest_stats,

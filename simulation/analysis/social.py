@@ -128,9 +128,13 @@ def main(argv: list[str]):
 
     # Read the elections data and agent names.
     try:
-      elections_data, agent_id_to_name, harvest_data, persona_types = (
-          read_elections_data()
-      )
+      (
+          elections_data,
+          agent_id_to_name,
+          harvest_data,
+          persona_types,
+          round_stats,
+      ) = read_elections_data()
     except FileNotFoundError as e:
       print(f"Failed to read: {e}")
       continue
@@ -179,10 +183,21 @@ def main(argv: list[str]):
 
     # Harvest data.
     total_harvest = 0.0
-    for _, data in harvest_data.items():
+    for round_idx, data in harvest_data.items():
+      total_harvest_round = 0.0
+      round_idx = int(round_idx)
+      # Set the resource lizt.
+      if round_idx > 0 and round_stats:
+        regen = round_stats[str(round_idx-1)]["regen_factor"]
+        resource_limit = round_stats[str(round_idx-1)]["num_resources"]
+        resource_limit *= regen
+        resource_limit = min(resource_limit, 100.0)
+      else:
+        resource_limit = 100.0
       for agent_name, resources in data.items():
         harvest_by_agent[agent_name].append(float(resources))
-        total_harvest += float(resources)
+        total_harvest_round += float(resources)
+      total_harvest += min(total_harvest_round, resource_limit)
 
     # Survival data.
     totals_map["survival_time"].append(float(survival_time))
@@ -192,7 +207,13 @@ def main(argv: list[str]):
     totals_map["total_harvest"].append(total_harvest)
 
     # Elections Metrics.
-    if POPULATION_SETTING != leaders_lib.LeaderPopulationType.NONE:
+    if (
+        POPULATION_SETTING == leaders_lib.LeaderPopulationType.BALANCED
+        or POPULATION_SETTING
+        == leaders_lib.LeaderPopulationType.LEAN_ALTRUISTIC
+        or POPULATION_SETTING
+        == leaders_lib.LeaderPopulationType.LEAN_COMPETITIVE
+    ):
       _, _, consecutive_wins = election_metrics(elections_data)
       for cycle, data in elections_data.items():
         totals_map["election_winners"][cycle][data["winner"]].append(1.0)
@@ -201,7 +222,8 @@ def main(argv: list[str]):
 
       for agent_name, consecutive in consecutive_wins.items():
         totals_map["election_consecutive_wins"][agent_name].append(
-            float(consecutive))
+            float(consecutive)
+        )
       if DEBUG:
         print(f"Election winners: {totals_map['election_winners']}\n")
         print(f"Election total votes: {totals_map['election_total_votes']}\n")
@@ -327,6 +349,7 @@ def read_elections_data() -> tuple[
     dict[str, str],
     dict[str, dict[str, dict[str, float]]],
     dict[str, str],
+    dict[str, Any],
 ]:
   """Reads the elections data & agent names."""
   with open(os.path.join(JSON_BASE_PATH, ELECTIONS_DATA), "r") as file:
@@ -336,6 +359,7 @@ def read_elections_data() -> tuple[
   harvest_data_by_cycle = {}
   agent_id_to_name = {}
   persona_types = {}
+  round_stats = {}
   for element in elections_data:
     if element["type"] == "persona_identities":
       for persona_id, agent_data in element["data"].items():
@@ -350,10 +374,18 @@ def read_elections_data() -> tuple[
           "votes": element["data"]["votes"],
           # "harvest_stats": element["data"]["harvest_stats"],
       }
+    elif element["type"] == "round_stats":
+      round_stats = element["data"]
     elif element["type"] == "harvest":
       harvest_data_by_cycle = element["data"]
 
-  return elections_dict, agent_id_to_name, harvest_data_by_cycle, persona_types
+  return (
+      elections_dict,
+      agent_id_to_name,
+      harvest_data_by_cycle,
+      persona_types,
+      round_stats,
+  )
 
 
 def get_next_speaker_from_interaction(interaction: str) -> str:
