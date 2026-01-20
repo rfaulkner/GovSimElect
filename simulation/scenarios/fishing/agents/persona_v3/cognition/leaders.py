@@ -405,7 +405,7 @@ def sample_leader_svos(
     ]
   elif leader_population_type == LeaderPopulationType.LEAN_COMPETITIVE:
     svo_categories = [
-        SVOPersonaType.COMPETITIVE,
+        SVOPersonaType.PROSOCIAL,
         SVOPersonaType.COMPETITIVE,
         SVOPersonaType.COMPETITIVE,
         SVOPersonaType.INDIVIDUALISTIC,
