@@ -12,15 +12,14 @@ This example shows how to:
 
 # pylint: disable=g-import-not-at-top
 
+import enum
 import json
 import os
 import sys
-
 from typing import Any
 
 # Add the src directory to the path so we can import our modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
 
 from api_clients import AzureOpenAIClient
 from api_clients import DeepSeekClient
@@ -30,16 +29,39 @@ import pandas as pd
 from processors import BatchProcessor
 from taxonomy import Taxonomy
 
+
+# SVO Persona Types.
+class LeaderPopulationType(enum.Enum):
+  BALANCED = "balanced"
+  LEAN_ALTRUISTIC = "lean_altruistic"
+  LEAN_COMPETITIVE = "lean_competitive"
+  ONE_COMPETITIVE = "one_competitive"
+  ONE_ALTRUISTIC = "one_altruistic"
+  ONE_PROSOCIAL = "one_prosocial"
+  ONE_INDIVIDUALISTIC = "one_individualistic"
+  NONE = "none"
+
+
 N_SEEDS = 10
+N_CYCLES = 6
 
 IN_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/simulation/results/fishing_v7.0"
 IN_MODEL = "gpt"
-IN_FILE_PREFIX = "gpt-4o-2024-05-13_disinfo_True_population_one_competitive"
 
 JSON_BASE_PATH = "/home/rfaulk/projects/aip-rgrosse/rfaulk/GovSimElect/llm_judge/"
-DEFAULT_OUTFILE = "sentiments.csv"
+DEFAULT_OUTFILE = "sentiments"
+FIRST_USER = "Julia"
 
-PERSUASION = True
+
+class TaxonomyType(enum.Enum):
+  """Taxonomy for sentiment analysis."""
+  SVO = "svo"
+  PERSUASION = "persuasion"
+  COOPERATION = "cooperation"
+
+POPULATION = LeaderPopulationType.ONE_PROSOCIAL
+DISINFO = False
+TAXONOMY_TYPE = TaxonomyType.COOPERATION
 
 
 def svo_taxonomy():
@@ -101,26 +123,21 @@ def persuasion_taxonomy():
 
   taxonomy.add_category(
       "Logos",
-      "One of Aristotle's core strategies of persuasion where an argument or"
-      " appeal showing internal consistency, logic, and content of the"
-      " argument, using facts, data, statistics, and well-structured reasoning"
-      " to convince an audience.",
+      "A statement meant to persuade through logical reasoning rather than"
+      " through emotions or appeal to authority.",
   )
 
   taxonomy.add_category(
       "Pathos",
-      "One of Aristotle's core strategies of persuasion where an appeal is made"
-      " to the audience's emotions, aiming to evoke feelings like joy, anger,"
-      " pity, or fear to persuade them, making them care about the speaker's"
-      " message and accept their judgment.",
+      "A statement meant to persuade through appeal to the listener's emotions"
+      " rather than through logical reasoning or authority.",
   )
 
   taxonomy.add_category(
       "Ethos",
-      "One of Aristotle's core strategies of persuasion through the speaker's"
-      " character, credibility, and trustworthiness, convincing the audience"
-      " that the speaker is a reliable source worthy of belief by demonstrating"
-      " wisdom, virtue, and goodwill.",
+      "A statement meant to persuade through appeal to the listener's respect"
+      " for authority and norms rather than through logical reasoning or"
+      " emotion.",
   )
 
   return taxonomy
@@ -166,27 +183,141 @@ def setup_api_client():
 def read_json() -> list[dict[str, Any]]:
   """Read a JSON file and return a list of events."""
   events_list = []
+  in_file_path_prefix = (
+      f"gpt-4o-2024-05-13_disinfo_{DISINFO}_population_{POPULATION.value}"
+  )
   for i in range(1, N_SEEDS + 1):
     in_file = os.path.join(
         IN_BASE_PATH,
         IN_MODEL,
-        IN_FILE_PREFIX + f"_run_{i}/persona_0/nodes.json",
+        in_file_path_prefix + f"_run_{i}/persona_0/nodes.json",
     )
     print(f"Reading {in_file}...")
     with open(in_file, "r") as f:
-      events_list += json.load(f)
+      events = json.load(f)
+      for i, _ in enumerate(events):
+        events[i]["seed"] = i-1
+      events_list += events
   return events_list
+
+
+def read_response_json() -> list[dict[str, Any]]:
+  """Read a JSON file and return a list of responses."""
+  responses_list = []
+  in_file_path_prefix = (
+      f"gpt-4o-2024-05-13_disinfo_{DISINFO}_population_{POPULATION.value}"
+  )
+  for i in range(1, N_SEEDS + 1):
+    in_file = os.path.join(
+        IN_BASE_PATH,
+        IN_MODEL,
+        in_file_path_prefix + f"_run_{i}/responses.json",
+    )
+    print(f"Reading {in_file}...")
+    with open(in_file, "r") as f:
+      for line in f:
+        data = json.loads(line)
+        data["seed"] = i-1
+        responses_list += [data]
+  return responses_list
+
+
+def parse_nodes():
+  """Parse the nodes JSON file."""
+  text_list = []
+  id_list = []
+  round_id = 0
+  user_name = ""
+  events_list = read_json()
+
+  for element in events_list:
+    seed = element["seed"]
+    utt_id = N_CYCLES * seed + round_id
+    if int(element["id"]) == 2:
+      # Retrieve the user name from the description.
+      user_name = element["description"].split()[0]
+    if element["type"] == "CHAT":
+      for utternace in element["conversation"]:
+        if utternace[0] == user_name:
+          # Only add the user's own utterances.
+          text_list.append(utternace[1])
+          id_list.append(utt_id)
+    elif element["type"] == "EVENT":
+      if "Before everyone" in str(element["description"]):
+        # Look for specific text heralding a new round.
+        round_id += 1
+    elif element["type"] == "THOUGHT":
+      # Add all thoughts for this user.
+      description = " ".join(element["description"].split("\n"))
+      text_list.append(description)
+      id_list.append(utt_id)
+  sample_data = {"text": text_list, "id": id_list}
+  return sample_data
+
+
+def parse_responses(include_actions: bool = True) -> dict[str, list[str]]:
+  """Parse the responses JSON file.
+
+  Args:
+    include_actions: Whether to include action responses (True) or only
+      converse responses (False).
+  
+  Response types are:
+    - action_response: the agent's response to a specific action.
+    - converse_response: the agent's response to a user utterance.
+
+  Returns:
+    A dict of filtered responses.
+  """
+  action_responses = []
+  converse_responses = []
+  action_ids = []
+  converse_ids = []
+  responses_list = read_response_json()
+  for event in responses_list:
+    seed = event["seed"]
+    data = event["data"]
+    response_type = event["type"]
+    if data["speaker"] == FIRST_USER:
+      if response_type == "action_response" and include_actions:
+        action_responses.append(data["reasoning"])
+        action_ids.append(seed)
+      elif response_type == "converse_response":
+        converse_responses.append(data["utterance"])
+        converse_ids.append(seed)
+      else:
+        continue
+  sample_data = {
+      "text": action_responses + converse_responses,
+      "id": action_ids + converse_ids,
+      }
+  return sample_data
 
 
 def main(argv: list[str]):
   """Main example function."""
 
-  if len(argv) > 2:
-    sys.exit("Too many args.")
   print(f"args: {argv}")
 
-  events_list = read_json()
-  out_file = os.path.join(JSON_BASE_PATH, DEFAULT_OUTFILE)
+  global POPULATION
+  global DISINFO
+  global TAXONOMY_TYPE
+
+  if len(argv):
+    POPULATION = LeaderPopulationType(argv[0])
+  if len(argv) > 1:
+    DISINFO = argv[1] == "true"
+  if len(argv) > 2:
+    TAXONOMY_TYPE = TaxonomyType(argv[2])
+
+  # Set output file.
+  results_path = os.path.join(JSON_BASE_PATH, "results")
+  if not os.path.exists(results_path):
+    os.makedirs(results_path)
+  out_file = os.path.join(
+      results_path,
+      f"{DEFAULT_OUTFILE}_{POPULATION.value}_disinfo_{DISINFO}_{TAXONOMY_TYPE.value}.csv",
+  )
 
   print("=== LLM Judge Basic Usage Example ===\n")
 
@@ -202,14 +333,18 @@ def main(argv: list[str]):
   print(f"✓ API connection successful: {message}\n")
 
   # 2. Load taxonomy
-  print("2. Loading taxonomy...")
-  if PERSUASION:
+  print(f"2. Loading taxonomy for {TAXONOMY_TYPE.value} ..")
+  if TAXONOMY_TYPE == TaxonomyType.PERSUASION:
+    taxonomy = persuasion_taxonomy()
+  elif TAXONOMY_TYPE == TaxonomyType.SVO:
     taxonomy = svo_taxonomy()
-  else:
+  elif TAXONOMY_TYPE == TaxonomyType.COOPERATION:
     taxonomy_path = os.path.join(
         os.path.dirname(__file__), "..", "config", "cooperation_taxonomy.json"
     )
     taxonomy = Taxonomy.from_json_file(taxonomy_path)
+  else:
+    raise ValueError(f"Unknown taxonomy type: {TAXONOMY_TYPE}")
   print(f"✓ Loaded taxonomy with {len(taxonomy)} categories")
   print("Categories:", ", ".join(taxonomy.get_categories()))
   print()
@@ -223,36 +358,10 @@ def main(argv: list[str]):
   print("5. Batch processing GovSim data:")
 
   # Load sample data from JSON file.
-  text_list = []
-  id_list = []
-  round_list = []
-  uid = 0
-  round_id = 0
-  user_name = ""
-  for element in events_list:
-    if int(element["id"]) == 2:
-      # Retrieve the user name from the description.
-      user_name = element["description"].split()[0]
-    if element["type"] == "CHAT":
-      for utternace in element["conversation"]:
-        if utternace[0] == user_name:
-          # Only add the user's own utterances.
-          text_list.append(utternace[1])
-          id_list.append(f"user_{uid}")
-          round_list.append(round_id)
-          uid += 1
-    elif element["type"] == "EVENT":
-      if "Before everyone" in str(element["description"]):
-        # Look for specific text heralding a new round.
-        round_id += 1
-    elif element["type"] == "THOUGHT":
-      # Add all thoughts for this user.
-      description = " ".join(element["description"].split("\n"))
-      text_list.append(description)
-      round_list.append(round_id)
-      id_list.append(f"user_{uid}")
-    uid += 1
-  sample_data = {"text": text_list, "id": id_list, "round": round_list}
+  # sample_data = parse_nodes()
+  sample_data = parse_responses(TAXONOMY_TYPE == TaxonomyType.COOPERATION)
+
+  # Combine these data somehow.
   df = pd.DataFrame(sample_data)
   print(f"Processing {len(df)} texts using batch processor...")
 

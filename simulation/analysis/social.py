@@ -30,7 +30,7 @@ from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as 
 # import pandas as pd
 
 MAX_CYCLES = 6
-NUM_AGENTS = 8
+NUM_AGENTS = 20
 
 JSON_BASE_PATH = ""
 
