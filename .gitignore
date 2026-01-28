@@ -173,4 +173,4 @@ api_usage/*
 subskills/results/
 .~lock.*
 
-launch*
+launch*.sh
