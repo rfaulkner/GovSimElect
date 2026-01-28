@@ -1,6 +1,6 @@
 # GovSimElect: Governance of the Commons Simulation with Elections
 
-Please see the [original GovSim project](https://github.com/giorgiopiatti/GovSim) for details of the baseline setup for GovSim. Stay tuned for further details regarding GovSimElect or contact me directly @ ryan.art.faulkner@gmail.com.
+Please see the [original GovSim project](https://github.com/giorgiopiatti/GovSim) for details of the baseline setup for GovSim.
 
 ![GovSim overview](imgs/govsim_pull_figure.png)
 
