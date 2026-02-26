@@ -70,6 +70,7 @@ agent:
   system_prompt: v3
   cot_prompt: think_step_by_step # think_step_by_step | deep_breath
   leader_population: balanced
+  election_type: fptp  # options: fptp (first_past_the_post), proportional (proportional_representation)
   act:
     universalization_prompt: false # true, false
     harvest_strategy: one_step #or: one_step, suistanability_guided, suistanability_idea

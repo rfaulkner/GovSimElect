@@ -23,6 +23,7 @@ from .agents.persona_v3 import DEFAULT_AGENDA
 from .agents.persona_v3 import FishingPersona
 from .agents.persona_v3.cognition import leaders as leaders_lib
 from .agents.persona_v3.cognition import utils as cognition_utils
+from .election import get_election_system
 from .environment import FishingConcurrentEnv
 from .environment import FishingPerturbationEnv
 
@@ -43,8 +44,31 @@ def perform_election(
     harvest_stats: str | None = None,
     disinfo: bool = False,
     debug: bool = False,
+    election_type: str = "fptp",
 ) -> tuple[str, dict[str, int], dict[str, str]]:
-  """Runs an election among the leaders."""
+  """Runs an election among the leaders.
+
+  Args:
+    personas: All persona agents in the simulation.
+    leader_candidates: Subset of personas that are leader candidates.
+    current_time: The current simulation time.
+    wrapper: The LLM wrapper used for agenda generation.
+    curr_round: The current simulation round number.
+    agent_id_to_name: Mapping from agent internal id to display name.
+    agent_name_to_id: Reverse mapping from display name to internal id.
+    last_winning_agenda: Agenda of the previous round's winner, if any.
+    harvest_report: Harvest report from the previous round, if any.
+    harvest_stats: True harvest statistics from the previous round, if any.
+    disinfo: Whether disinformation mode is active.
+    debug: Whether to print verbose debug output.
+    election_type: Name of the electoral system to use for winner
+      determination.  Supported values: ``"fptp"`` /
+      ``"first_past_the_post"``, ``"proportional"`` /
+      ``"proportional_representation"``.
+
+  Returns:
+    Tuple of (winner_name, votes_dict, leader_agendas_dict).
+  """
   print(f"\n\n\ROUND {curr_round}: ELECTION\n==================")
   leader_agendas = {}
   # Get updated leader agendas using the leader prompt functions
@@ -102,14 +126,11 @@ def perform_election(
             )
         )
 
-    # Determine winner (as the candidate's human-readable name)
-    # Randonly break ties.
+    # Determine winner using the pluggable election system.
     votes_cp = dict(votes)
-    if "none" in votes_cp:
-      del votes_cp["none"]
-    winner = max(votes_cp.values())
-    keys = [key for key, value in votes_cp.items() if value == winner]
-    winner = random.choice(keys)
+    votes_cp.pop("none", None)  # Exclude abstentions.
+    election_system = get_election_system(election_type)
+    winner = election_system.determine_winner(votes_cp)
   elif len(leader_candidates) == 1:
     print("SKIPPING ELECTION AS ONLY ONE LEADER CANDIDATE...")
     winner = list(leader_candidates.keys())[0]
@@ -318,6 +339,7 @@ def run(
   curr_round = env.num_round
 
   # Run the first election - skip if there are no leader candidates.
+  election_type = cfg.agent.get("election_type", "fptp")
   agenda = DEFAULT_AGENDA
   winner, votes, leader_agendas, harvest_report = None, None, None, None
   if leader_candidates:
@@ -331,6 +353,7 @@ def run(
         agent_name_to_id=agent_name_to_id,
         disinfo=disinformation,
         debug=cfg.debug,
+        election_type=election_type,
     )
     agenda = leader_agendas[winner]
 
@@ -435,6 +458,7 @@ def run(
           harvest_stats=round_harvest_stats[curr_round-1],
           disinfo=disinformation,
           debug=cfg.debug,
+          election_type=election_type,
       )
       agenda = leader_agendas[winner]
     else:
