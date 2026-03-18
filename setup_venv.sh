@@ -17,7 +17,7 @@ echo "✅ Virtual environment created and activated"
 echo "📚 Installing dependencies..." 
 echo "  → Installing project requirements..." 
 echo "  → This may take a few minutes..." 
-pip install -r requirements_DRAC.txt --find-links https://pypi.org/simple/ --prefer-binary 
+pip install -r requirements_venv.txt --find-links https://pypi.org/simple/ --prefer-binary 
 echo "✅ All dependencies installed" 
  
  

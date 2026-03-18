@@ -178,5 +178,5 @@ GovSimElect/
 ├── setup_venv.sh          # Virtual environment setup
 ├── setup_vllm.sh          # vLLM setup for local open-weight models
 ├── requirements.txt       # Pip dependencies (default)
-└── requirements_DRAC.txt  # Pip dependencies (venv / cluster)
+└── requirements_venv.txt  # Pip dependencies (venv / cluster)
 ```
