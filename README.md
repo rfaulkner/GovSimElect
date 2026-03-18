@@ -1,12 +1,12 @@
-# GovSimElect: Governance of the Commons Simulation with Elections
+# AgentElect: Governance of the Commons Simulation with Elections
 
-GovSimElect extends the [GovSim](https://github.com/giorgiopiatti/GovSim) framework to study how leadership structures affect collective resource management. This project is primarily designed to produce **reproducible results** for comparing three population leadership variants:
+AgentElect extends the [GovSim](https://github.com/giorgiopiatti/GovSim) framework to study how leadership structures affect collective resource management. This project is primarily designed to produce **reproducible results** for comparing three population leadership variants:
 
 - **Elected-Leader**: Leaders are chosen through an election process among agents.
 - **Fixed-Leader**: A pre-assigned leader governs the population throughout the simulation.
 - **No-Leader**: Agents self-govern without any designated leadership.
 
-![GovSim overview](imgs/govsim_pull_figure.png)
+![AgentElect overview](imgs/agent_elect.png)
 
 ## Code Setup
 
