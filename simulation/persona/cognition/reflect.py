@@ -1,43 +1,63 @@
 """Reflect cognition component — handles insights and conversation reflection."""
 
-from simulation.utils import ModelWandbWrapper
-
-from ..common import ChatObservation, PersonaIdentity
-from .component import Component
-from .reflect_prompts import (
-    prompt_insight_and_evidence,
-    prompt_memorize_from_conversation,
-    prompt_planning_thought_on_conversation,
-)
+from simulation import utils as sim_utils
+from simulation.persona.cognition import component
+from simulation.persona.cognition import reflect_prompts
 
 
-class ReflectComponent(Component):
+class ReflectComponent(component.Component):
+  """Handles reflection on memories and conversations."""
 
-    def __init__(
-        self,
-        model: ModelWandbWrapper,
-        model_framework: ModelWandbWrapper,
-    ):
-        super().__init__(model, model_framework)
+  def __init__(
+      self,
+      model: sim_utils.ModelWandbWrapper,
+      model_framework: sim_utils.ModelWandbWrapper,
+  ):
+    """Initialize the reflect component."""
+    super().__init__(model, model_framework)
 
-    def run(self, focal_points: list[str]):
-        acc = []
-        for focal_point in focal_points:
-            retireved_memory = self.persona.retrieve.retrieve([focal_point], 10)
+  def run(self, focal_points: list[str]):
+    """Run reflection on a list of focal points."""
+    acc = []
+    for focal_point in focal_points:
+      retireved_memory = self.persona.retrieve.retrieve(
+          [focal_point], 10,
+      )
 
-            insights = prompt_insight_and_evidence(
-                self.model, self.persona.identity, retireved_memory
-            )
-            for insight in insights:
-                self.persona.store.store_thought(insight, self.persona.current_time)
-                acc.append(insight)
-
-    def reflect_on_convesation(self, conversation: list[tuple[str, str]]):
-        planning = prompt_planning_thought_on_conversation(
-            self.model, self.persona.identity, conversation
+      insights = reflect_prompts.prompt_insight_and_evidence(
+          self.model,
+          self.persona.identity,
+          retireved_memory,
+      )
+      for insight in insights:
+        self.persona.store.store_thought(
+            insight, self.persona.current_time,
         )
-        self.persona.store.store_thought(planning, self.persona.current_time)
-        memo = prompt_memorize_from_conversation(
-            self.model, self.persona.identity, conversation
+        acc.append(insight)
+
+  def reflect_on_convesation(
+      self, conversation: list[tuple[str, str]],
+  ):
+    """Reflect on a conversation and store insights."""
+    planning = (
+        reflect_prompts
+        .prompt_planning_thought_on_conversation(
+            self.model,
+            self.persona.identity,
+            conversation,
         )
-        self.persona.store.store_thought(memo, self.persona.current_time)
+    )
+    self.persona.store.store_thought(
+        planning, self.persona.current_time,
+    )
+    memo = (
+        reflect_prompts
+        .prompt_memorize_from_conversation(
+            self.model,
+            self.persona.identity,
+            conversation,
+        )
+    )
+    self.persona.store.store_thought(
+        memo, self.persona.current_time,
+    )

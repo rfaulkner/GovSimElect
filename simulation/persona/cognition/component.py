@@ -1,24 +1,42 @@
-from typing import TYPE_CHECKING
+"""Component base class for cognition modules."""
 
-from simulation.utils import ModelWandbWrapper
+from __future__ import annotations
 
-if TYPE_CHECKING:
-    from ..persona import PersonaAgent
+import typing
+
+from simulation import utils as sim_utils
+
+if typing.TYPE_CHECKING:
+  from simulation.persona import persona
 
 
 class Component:
-    persona: "PersonaAgent"
+  """Base class for cognition components."""
 
-    def __init__(
-        self, model: ModelWandbWrapper, model_framework: ModelWandbWrapper, cfg=None
-    ) -> None:
-        self.model = model
-        self.model_framework = model_framework
-        self.cfg = cfg
-        self.other_personas: dict[str, "PersonaAgent"] = {}
+  persona: "persona.PersonaAgent"
 
-    def init_persona_ref(self, persona: "PersonaAgent"):
-        self.persona = persona
+  def __init__(
+      self,
+      model: sim_utils.ModelWandbWrapper,
+      model_framework: sim_utils.ModelWandbWrapper,
+      cfg=None,
+  ) -> None:
+    """Initialize the component."""
+    self.model = model
+    self.model_framework = model_framework
+    self.cfg = cfg
+    self.other_personas: dict[str, "persona.PersonaAgent"] = {}
 
-    def add_reference_to_other_persona(self, persona: "PersonaAgent"):
-        self.other_personas[persona.identity.name] = persona
+  def init_persona_ref(
+      self, persona_ref: "persona.PersonaAgent",
+  ):
+    """Set the persona reference."""
+    self.persona = persona_ref
+
+  def add_reference_to_other_persona(
+      self, persona_ref: "persona.PersonaAgent",
+  ):
+    """Add a reference to another persona."""
+    self.other_personas[
+        persona_ref.identity.name
+    ] = persona_ref

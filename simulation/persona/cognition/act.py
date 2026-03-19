@@ -1,38 +1,44 @@
 """Act cognition component — handles harvesting and election decisions."""
 
-from datetime import datetime
+import datetime
 
-from simulation.utils import ModelWandbWrapper
-
-from .component import Component
-from .act_prompts import (
-    prompt_action_choose_amount_of_fish_to_catch,
-    prompt_election_vote,
-)
-from .utils import get_universalization_prompt
+from simulation import utils as sim_utils
+from simulation.persona.cognition import act_prompts
+from simulation.persona.cognition import component
+from simulation.persona.cognition import utils as cognition_utils
 
 
-class ActComponent(Component):
+class ActComponent(component.Component):
+  """Handles acting decisions for fishing and elections."""
 
-    def __init__(
-        self, model: ModelWandbWrapper, model_framework: ModelWandbWrapper, cfg=None
-    ):
-        super().__init__(model, model_framework, cfg)
+  def __init__(
+      self,
+      model: sim_utils.ModelWandbWrapper,
+      model_framework: sim_utils.ModelWandbWrapper,
+      cfg=None,
+  ):
+    """Initialize the act component."""
+    super().__init__(model, model_framework, cfg)
 
-    def choose_how_many_fish_to_catch(
-        self,
-        retrieved_memories: list[str],
-        current_location: str,
-        current_time: datetime,
-        context: str,
-        interval: list[int],
-        overusage_threshold: int,
-        leader_agenda: str,
-        debug: bool = False,
-    ):
-        if self.cfg.universalization_prompt:
-            context += get_universalization_prompt(overusage_threshold)
-        res, html = prompt_action_choose_amount_of_fish_to_catch(
+  def choose_how_many_fish_to_catch(
+      self,
+      retrieved_memories: list[str],
+      current_location: str,
+      current_time: datetime.datetime,
+      context: str,
+      interval: list[int],
+      overusage_threshold: int,
+      leader_agenda: str,
+      debug: bool = False,
+  ):
+    """Choose how many fish to catch this month."""
+    if self.cfg.universalization_prompt:
+      context += cognition_utils.get_universalization_prompt(
+          overusage_threshold,
+      )
+    res, html = (
+        act_prompts
+        .prompt_action_choose_amount_of_fish_to_catch(
             self.model,
             self.persona,
             retrieved_memories,
@@ -40,30 +46,34 @@ class ActComponent(Component):
             current_time,
             context,
             interval,
-            consider_identity_persona=self.cfg.consider_identity_persona,
+            consider_identity_persona=(
+                self.cfg.consider_identity_persona
+            ),
             leader_agenda=leader_agenda,
             debug=debug,
         )
-        res = int(res)
-        return res, [html]
+    )
+    res = int(res)
+    return res, [html]
 
-    def participate_in_election(
-        self,
-        retrieved_memories: list[str],
-        current_location: str,
-        current_time: str,
-        candidates: list[str],
-        leader_agendas: dict[str, str],
-        debug: bool = False,
-    ) -> tuple[str, list[str]]:
-        vote, html = prompt_election_vote(
-            self.model,
-            self.persona,
-            retrieved_memories,
-            current_location,
-            current_time,
-            candidates,
-            leader_agendas,
-            debug=debug,
-        )
-        return vote, [html]
+  def participate_in_election(
+      self,
+      retrieved_memories: list[str],
+      current_location: str,
+      current_time: str,
+      candidates: list[str],
+      leader_agendas: dict[str, str],
+      debug: bool = False,
+  ) -> tuple[str, list[str]]:
+    """Participate in an election and cast a vote."""
+    vote, html = act_prompts.prompt_election_vote(
+        self.model,
+        self.persona,
+        retrieved_memories,
+        current_location,
+        current_time,
+        candidates,
+        leader_agendas,
+        debug=debug,
+    )
+    return vote, [html]

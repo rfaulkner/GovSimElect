@@ -1,8 +1,19 @@
-from .act import ActComponent
-from .converse import ConverseComponent
-from .perceive import PerceiveComponent, PersonaOberservation
-from .plan import PlanComponent
-from .reflect import ReflectComponent
-from .retrieve import RetrieveComponent
-from .store import StoreComponent
-from . import leaders
+"""Cognition components for persona agents."""
+
+from simulation.persona.cognition import act
+from simulation.persona.cognition import converse
+from simulation.persona.cognition import perceive
+from simulation.persona.cognition import plan
+from simulation.persona.cognition import reflect
+from simulation.persona.cognition import retrieve
+from simulation.persona.cognition import store
+from simulation.persona import common
+
+ActComponent = act.ActComponent
+ConverseComponent = converse.ConverseComponent
+PerceiveComponent = perceive.PerceiveComponent
+PersonaOberservation = common.PersonaOberservation
+PlanComponent = plan.PlanComponent
+ReflectComponent = reflect.ReflectComponent
+RetrieveComponent = retrieve.RetrieveComponent
+StoreComponent = store.StoreComponent

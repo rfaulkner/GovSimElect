@@ -172,7 +172,6 @@ GovSimElect/
 │   ├── scenarios/         # Scenario configurations
 │   └── utils/             # Simulation utilities
 ├── llm_judge/             # LLM-as-judge evaluation framework
-├── subskills/             # Agent subskill modules
 ├── utils/                 # General utilities
 ├── setup.sh               # Default setup (Conda)
 ├── setup_venv.sh          # Virtual environment setup
