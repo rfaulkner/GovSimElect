@@ -1,22 +1,16 @@
 """PersonaAgent — single agent class for the fishing election simulation.
 
 Holds agent state (identity, SVO, election data) and cognition components
-(act, converse, reflect, store, retrieve, perceive, plan). The simulation
-loop logic lives in run.py; this class is a stateful container only.
+(act, converse, reflect, store, retrieve, perceive, plan).
+
+Phase-specific simulation logic lives in ``simulation.phases``
+(see PolicyMakingPhase, ElectionPhase, HarvestingPhase, DiscussionPhase,
+ReflectionPhase).  This class is a stateful container only.
 """
 
 from datetime import datetime
 import enum
 import os
-from typing import Any
-
-from simulation.persona.common import ChatObservation
-from simulation.persona.common import PersonaAction
-from simulation.persona.common import PersonaActionChat
-from simulation.persona.common import PersonaActionHarvesting
-from simulation.persona.common import PersonaIdentity
-from simulation.persona.common import PersonaOberservation
-from simulation.utils.models import ModelWandbWrapper
 
 from simulation.persona.cognition.act import ActComponent
 from simulation.persona.cognition.converse import ConverseComponent
@@ -25,9 +19,11 @@ from simulation.persona.cognition.plan import PlanComponent
 from simulation.persona.cognition.reflect import ReflectComponent
 from simulation.persona.cognition.retrieve import RetrieveComponent
 from simulation.persona.cognition.store import StoreComponent
+from simulation.persona.common import PersonaIdentity
 from simulation.persona.embedding_model import EmbeddingModel
 from simulation.persona.memory.associative_memory import AssociativeMemory
 from simulation.persona.memory.scratch import Scratch
+from simulation.utils.models import ModelWandbWrapper
 
 
 class SVOPersonaType(enum.Enum):
@@ -188,92 +184,4 @@ class PersonaAgent:
     def set_env(self, env: PersonaEnvironment):
         self.identity.env = env
 
-    def loop(self, obs, debug: bool = False):
-        self.current_time = obs.current_time
 
-        self.perceive.perceive(obs)
-
-        action = PersonaAction(self.agent_id, "lake")
-        if obs.current_location == "lake" and obs.phase == "lake":
-            retrieved_memory = self.retrieve.retrieve([obs.current_location], 10)
-            str_memory = [
-                str(memory) for memory in retrieved_memory
-            ]
-            str_memory = "\n".join(str_memory)
-            if debug:
-                print(f"MEMORIES {self.identity.name}:\n{str_memory}")
-            if obs.current_resource_num > 0:
-                num_resource, html_interactions = (
-                    self.act.choose_how_many_fish_to_catch(
-                        retrieved_memory,
-                        obs.current_location,
-                        obs.current_time,
-                        obs.context,
-                        range(0, obs.current_resource_num + 1),
-                        obs.before_harvesting_sustainability_threshold,
-                        self._agenda,
-                        debug=debug,
-                    )
-                )
-                action = PersonaActionHarvesting(
-                    self.agent_id,
-                    "lake",
-                    num_resource,
-                    stats={f"{self.agent_id}_collected_resource": num_resource},
-                    html_interactions=html_interactions,
-                )
-            else:
-                num_resource = 0
-                action = PersonaActionHarvesting(
-                    self.agent_id,
-                    "lake",
-                    num_resource,
-                    stats={},
-                    html_interactions="<strong>Framework<strong/>: no fish to catch",
-                )
-            if debug:
-                print(f"HARVEST: {self.identity.name} {num_resource}.")
-        elif (
-            obs.current_location == "lake" and obs.phase == "pool_after_harvesting"
-        ):
-            action = PersonaAction(self.agent_id, "lake")
-        elif obs.current_location == "restaurant":
-            other_personas = []
-            for agent_id, location in obs.current_location_agents.items():
-                if location == "restaurant":
-                    other_personas.append(
-                        self.other_personas_from_id[agent_id]
-                    )
-
-            (
-                conversation,
-                _,
-                resource_limit,
-                html_interactions,
-            ) = self.converse.converse_group(
-                other_personas,
-                obs.current_location,
-                obs.current_time,
-                obs.context,
-                obs.agent_resource_num,
-                mayoral_agenda=self._agenda,
-                harvest_report=self._harvest_report,
-                leader_persona=self._current_leader,
-                debug=debug,
-            )
-            action = PersonaActionChat(
-                self.agent_id,
-                "restaurant",
-                conversation,
-                conversation_resource_limit=resource_limit,
-                stats={"conversation_resource_limit": resource_limit},
-                html_interactions=html_interactions,
-            )
-        elif obs.current_location == "home":
-            self.reflect.run(["harvesting"])
-            action = PersonaAction(self.agent_id, "home")
-            if debug:
-                print(f"REFLECT: {self.identity.name}.")
-
-        self.memory.save()
-        return action

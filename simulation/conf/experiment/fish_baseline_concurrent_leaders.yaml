@@ -3,6 +3,13 @@ scenario: fishing
 debug: true
 seed: 0
 
+phases:
+  - policy_making
+  - election
+  - harvesting
+  - discussion
+  - reflection
+
 defaults:
   - persona@personas.persona_0: baseline_fisherman
   - persona@personas.persona_1: baseline_fisherman

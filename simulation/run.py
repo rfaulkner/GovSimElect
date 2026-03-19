@@ -1,134 +1,75 @@
-"""Runs simulation with an election."""
+"""Runs simulation with an election.
 
-import collections
+The simulation loop is driven by configurable Phase objects (see
+simulation.phases).  Each round iterates through the configured phase
+list; the default ordering is:
+
+    PolicyMaking → Election → Harvesting(+Report) → Discussion → Reflection
+
+Phase ordering is set via the ``phases`` key in the experiment YAML.
+"""
+
 import datetime
 import os
-import random
-import numpy as np
+
 import omegaconf
-from simulation.environment import concurrent_env
 from simulation.environment.concurrent_env import ConcurrentEnv
 from simulation.environment.perturbation_env import PerturbationEnv
+
 from simulation.persona.cognition import leaders as leaders_lib
 from simulation.persona.cognition import utils as cognition_utils
-from simulation.persona.common import PersonaActionHarvesting
 from simulation.persona.common import PersonaEnvironment
-from simulation.persona.common import PersonaEvent
 from simulation.persona.common import PersonaIdentity
 from simulation.persona.embedding_model import EmbeddingModel
-from simulation.persona.persona import DEFAULT_AGENDA
 from simulation.persona.persona import PersonaAgent
 from simulation.persona.persona import SVOPersonaType
+
+from simulation.phases.base import PhaseContext
+from simulation.phases.discussion import DiscussionPhase
+from simulation.phases.election import ElectionPhase
+from simulation.phases.harvesting import HarvestingPhase
+from simulation.phases.policy_making import PolicyMakingPhase
+from simulation.phases.reflection import ReflectionPhase
+
 from simulation.utils.models import ModelWandbWrapper
 
 
 cognition_utils.SYS_VERSION = "v3"
 
 
-def perform_election(
-    personas: dict[str, PersonaAgent],
-    leader_candidates: dict[str, PersonaAgent],
-    current_time: datetime,
-    wrapper: ModelWandbWrapper,
-    curr_round: int,
-    agent_id_to_name: dict[int, str],
-    agent_name_to_id: dict[str, int],
-    last_winning_agenda: str | None = None,
-    harvest_report: str | None = None,
-    harvest_stats: str | None = None,
-    disinfo: bool = False,
-    debug: bool = False,
-) -> tuple[str, dict[str, int], dict[str, str]]:
-  """Run the election."""
-  print(f"\n\n\ROUND {curr_round}: ELECTION\n==================")
-  leader_agendas = {}
-  for _, leader in leader_candidates.items():
-    agenda, _ = leaders_lib.prompt_leader_agenda(
-        model=wrapper,
-        init_persona=leader,
-        current_location="restaurant",
-        current_time=current_time,
-        init_retrieved_memory=leaders_lib.get_memories(leader),
-        total_fishers=len(personas),
-        svo_angle=leader.svo_angle,
-        last_winning_agenda=last_winning_agenda,
-        harvest_report=harvest_report,
-        harvest_stats=harvest_stats,
-        use_disinfo=disinfo,
-    )
-    leader_agendas[leader.identity.name] = agenda
-  votes = {leader.identity.name: 0 for leader in leader_candidates.values()}
-  if len(leader_candidates) > 1:
-    for persona_id in personas:
-      if persona_id not in leader_candidates:
-        retireved_memory = leaders_lib.get_memories(personas[persona_id])
-        candidates = [
-            leader.identity.name for _, leader in leader_candidates.items()
-        ]
-        random.shuffle(candidates)
-        vote, _ = personas[persona_id].act.participate_in_election(
-            retrieved_memories=retireved_memory,
-            current_location="",
-            current_time=current_time.strftime("%H-%M-%S"),
-            candidates=candidates,
-            leader_agendas=leader_agendas,
-            debug=debug,
-        )
-        candidate_id = vote.name if hasattr(vote, "name") else str(vote)
-        candidate_str = agent_id_to_name.get(candidate_id, candidate_id)
-        votes[candidate_str] = votes.get(candidate_str, 0) + 1
-        personas[persona_id].store.store_event(
-            PersonaEvent(
-                f"Round {curr_round} vote: {vote}",
-                created=current_time,
-                expiration=concurrent_env.get_expiration_next_month(
-                    current_time
-                ),
-                always_include=True,
-            )
-        )
+# ── Phase registry ────────────────────────────────────────────────────
 
-    votes_cp = dict(votes)
-    if "none" in votes_cp:
-      del votes_cp["none"]
-    winner = max(votes_cp.values())
-    keys = [key for key, value in votes_cp.items() if value == winner]
-    winner = random.choice(keys)
-  elif len(leader_candidates) == 1:
-    print("SKIPPING ELECTION AS ONLY ONE LEADER CANDIDATE...")
-    winner = list(leader_candidates.keys())[0]
-    winner = agent_id_to_name[winner]
-  else:
-    raise ValueError("No leader candidates or only one leader candidate.")
+DEFAULT_PHASES = [
+    "policy_making",
+    "election",
+    "harvesting",
+    "discussion",
+    "reflection",
+]
 
-  if debug:
-    print("\n=================\nELECTION RESULTS\n=================")
-    for candidate, vote_count in votes.items():
-      print(f"{candidate}: {vote_count} votes")
-    print(f"\nROUND {curr_round} WINNER: {winner}")
-    print("\n=================\nLEADER AGENDAS\n=================")
-    for agenda_id, agenda in leader_agendas.items():
-      print(
-          f"\n{agent_id_to_name.get(agenda_id, agenda_id)}'s"
-          " Agenda:\n=================="
+PHASE_REGISTRY = {
+    "policy_making": PolicyMakingPhase,
+    "election": ElectionPhase,
+    "harvesting": HarvestingPhase,
+    "discussion": DiscussionPhase,
+    "reflection": ReflectionPhase,
+}
+
+
+def build_phases(phase_names: list[str]) -> list:
+  """Instantiate Phase objects from a list of phase name strings."""
+  phases = []
+  for name in phase_names:
+    if name not in PHASE_REGISTRY:
+      raise ValueError(
+          f"Unknown phase: {name!r}."
+          f" Available: {list(PHASE_REGISTRY.keys())}"
       )
-      pid = agent_name_to_id.get(agenda_id, agenda_id)
-      print(
-          f"SVO Angle: {leader_candidates[pid].svo_angle}, SVO Type:"
-          f" {leader_candidates[pid].svo_type}\n"
-      )
-      print(agenda)
-  leader_agendas["none"] = "No leader agenda, use your best judgement."
-  leader_announcement = (
-      f"Newly elected leader {winner}'s round {curr_round} agenda:"
-      f" {leader_agendas[winner]}"
-  )
-  leaders_lib.make_public_leader_memories(
-      all_personas=personas,
-      leader_announcement=leader_announcement,
-      current_time=current_time,
-  )
-  return winner, votes, leader_agendas
+    phases.append(PHASE_REGISTRY[name]())
+  return phases
+
+
+# ── Main entry point ──────────────────────────────────────────────────
 
 
 def run(
@@ -166,12 +107,12 @@ def run(
       log_path=consolidated_log_path,
   )
 
-  election_results = {}
-
   if cfg.agent.agent_package == "persona_v3":
     cognition_utils.REASONING = cfg.agent.cot_prompt
   else:
     raise ValueError(f"Unknown agent package: {cfg.agent.agent_package}")
+
+  # ── Leader setup ──────────────────────────────────────────────────
 
   leader_distribution = leaders_lib.LeaderPopulationType(
       cfg.agent.leader_population
@@ -194,6 +135,8 @@ def run(
         disinfo=False,
         experiment_storage=experiment_storage,
     )
+
+  # ── Persona setup ─────────────────────────────────────────────────
 
   personas = {**leader_candidates}
   num_leaders = len(leader_types)
@@ -271,7 +214,11 @@ def run(
     )
   for persona in personas:
     for other_persona in personas:
-      personas[persona].add_reference_to_other_persona(personas[other_persona])
+      personas[persona].add_reference_to_other_persona(
+          personas[other_persona]
+      )
+
+  # ── Environment setup ─────────────────────────────────────────────
 
   env_class = (
       PerturbationEnv
@@ -286,168 +233,113 @@ def run(
   )
 
   agent_id, obs = env.reset()
-  curr_round = env.num_round
 
-  agenda = DEFAULT_AGENDA
-  winner, votes, leader_agendas, harvest_report = None, None, None, None
-  if leader_candidates:
-    winner, votes, leader_agendas = perform_election(
-        personas,
-        leader_candidates,
-        obs.current_time,
-        wrapper,
-        curr_round=curr_round,
-        agent_id_to_name=agent_id_to_name,
-        agent_name_to_id=agent_name_to_id,
-        disinfo=disinformation,
-        debug=cfg.debug,
-    )
-    agenda = leader_agendas[winner]
+  # ── Phase setup ───────────────────────────────────────────────────
 
-  round_stats = collections.defaultdict(lambda: collections.defaultdict(int))
+  if hasattr(cfg, "phases"):
+    phase_names = list(cfg.phases)
+  else:
+    phase_names = DEFAULT_PHASES
+  phases = build_phases(phase_names)
+  print(f"PHASE ORDER: {[p.name for p in phases]}")
 
-  round_harvest_stats = collections.defaultdict(
-      lambda: collections.defaultdict(int)
+  ctx = PhaseContext(
+      cfg=cfg,
+      personas=personas,
+      leader_candidates=leader_candidates,
+      env=env,
+      wrapper=wrapper,
+      logger=logger,
+      agent_id_to_name=agent_id_to_name,
+      agent_name_to_id=agent_name_to_id,
+      experiment_storage=experiment_storage,
+      consolidated_log_path=consolidated_log_path,
+      disinformation=disinformation,
+      debug=cfg.debug,
+      agent_id=agent_id,
+      obs=obs,
+      round_num=env.num_round,
   )
 
-  last_location = None
-  while True:
+  # ── Main simulation loop ──────────────────────────────────────────
 
-    if obs.current_location == "restaurant" and last_location == "lake":
-      if cfg.debug:
-        print(
-            f"ROUND {curr_round}: DISCUSSION PHASE\n=========================\n"
+  while not ctx.terminated:
+    for phase in phases:
+      ctx = phase.execute(ctx)
+      if ctx.terminated:
+        break
+
+    if not ctx.terminated:
+      # Log the completed round's election results.
+      if (
+          ctx.leader_candidates
+          and len(ctx.leader_candidates) > 1
+      ):
+        ctx.election_results[ctx.round_num] = {
+            "round": ctx.round_num,
+            "winner": ctx.winner,
+            "agendas": ctx.leader_agendas,
+            "votes": ctx.votes,
+            "harvest_report": ctx.harvest_report,
+            "harvest_stats": dict(
+                ctx.round_harvest_stats[ctx.round_num]
+            ),
+            "num_resources": ctx.env.internal_global_state[
+                "resource_in_pool"
+            ],
+        }
+        cognition_utils.log_to_file(
+            log_type="election",
+            data=ctx.election_results[ctx.round_num],
+            log_path=ctx.consolidated_log_path,
         )
-      round_stats[curr_round] = {
-          "num_resources": env.internal_global_state["resource_in_pool"],
-          "regen_factor": env.internal_global_state["regen_factor"],
-      }
-      print(f"ROUND {curr_round} ROUND STATS: {round_stats}")
-      if leader_candidates:
-        assert winner is not None
-        harvest_report = leaders_lib.make_leader_report(
-            personas=personas,
-            leader_candidates=leader_candidates,
-            current_time=obs.current_time,
-            wrapper=wrapper,
-            disinformation=disinformation,
-            agenda=agenda,
-            curr_round=curr_round,
-            winner_id=agent_name_to_id[winner],
-            round_harvest_stats=round_harvest_stats[curr_round],
-            regen_factor=env.internal_global_state["regen_factor"],
-            debug=cfg.debug,
-        )
-        announcement = f"{winner}'s ROUND {curr_round} REPORT: {harvest_report}"
-        leaders_lib.make_public_leader_memories(
-            all_personas=personas,
-            leader_announcement=announcement,
-            current_time=obs.current_time,
-        )
-      else:
-        print("NO LEADER CANDIDATES - MAKING FACTUAL REPORT ...")
-        harvest_report = leaders_lib.make_harvest_report(
-            personas, round_harvest_stats[curr_round]
-        )
+        ctx.logger.log_game(ctx.election_results[ctx.round_num])
+      ctx.round_num = ctx.env.num_round
 
-    agent = personas[agent_id]
+  # ── Final logging ─────────────────────────────────────────────────
 
-    agent.update_agenda(agenda)
-    agent.update_harvest_report(harvest_report)
-    if winner:
-      agent.update_current_leader(leader_candidates[agent_name_to_id[winner]])
-    action = agent.loop(obs, debug=cfg.debug)
-
-    if len(leader_candidates) > 1 and curr_round != env.num_round:
-      election_results[curr_round] = {
-          "round": curr_round,
-          "winner": winner,
-          "agendas": leader_agendas,
-          "votes": votes,
-          "harvest_report": harvest_report,
-          "harvest_stats": round_harvest_stats[curr_round],
-          "num_resources": env.internal_global_state["resource_in_pool"],
-      }
-      cognition_utils.log_to_file(
-          log_type="election",
-          data=election_results[curr_round],
-          log_path=consolidated_log_path,
-      )
-      logger.log_game(election_results[curr_round])
-      curr_round = env.num_round
-      winner, votes, leader_agendas = perform_election(
-          personas,
-          leader_candidates,
-          obs.current_time,
-          wrapper,
-          curr_round=curr_round,
-          agent_id_to_name=agent_id_to_name,
-          agent_name_to_id=agent_name_to_id,
-          last_winning_agenda=agenda,
-          harvest_report=harvest_report,
-          harvest_stats=round_harvest_stats[curr_round - 1],
-          disinfo=disinformation,
-          debug=cfg.debug,
-      )
-      agenda = leader_agendas[winner]
-    else:
-      curr_round = env.num_round
-
-    last_location = obs.current_location
-
-    agent_id, obs, _, termination = env.step(action)
-
-    if isinstance(action, PersonaActionHarvesting):
-      round_harvest_stats[curr_round][agent.identity.name] = action.quantity
-
-    stats = {}
-    if hasattr(action, "stats"):
-      for s in [
-          "conversation_resource_limit",
-          *[
-              f"persona_{i}_collected_resource"
-              for i in range(cfg.env.num_agents)
-          ],
-      ]:
-        if s in action.stats:
-          stats[s] = action.stats[s]
-    logger.log_game({"num_resource": obs.current_resource_num, **stats})
-
-    if np.any(list(termination.values())):
-      logger.log_game({"num_resource": obs.current_resource_num}, last_log=True)
-      break
-
-  election_results[curr_round] = {
-      "round": curr_round,
-      "winner": winner,
-      "agendas": leader_agendas,
-      "votes": votes,
-      "harvest_report": harvest_report,
-      "harvest_stats": round_harvest_stats[curr_round],
-      "num_resources": env.internal_global_state["resource_in_pool"],
+  ctx.election_results[ctx.round_num] = {
+      "round": ctx.round_num,
+      "winner": ctx.winner,
+      "agendas": ctx.leader_agendas,
+      "votes": ctx.votes,
+      "harvest_report": ctx.harvest_report,
+      "harvest_stats": dict(
+          ctx.round_harvest_stats[ctx.round_num]
+      ),
+      "num_resources": ctx.env.internal_global_state[
+          "resource_in_pool"
+      ],
   }
   cognition_utils.log_to_file(
       log_type="election",
-      data=election_results[curr_round],
-      log_path=consolidated_log_path,
+      data=ctx.election_results[ctx.round_num],
+      log_path=ctx.consolidated_log_path,
   )
-  logger.log_game(election_results[curr_round])
+  ctx.logger.log_game(ctx.election_results[ctx.round_num])
   print(
       "FINAL HARVEST STATS - ROUND"
-      f" {curr_round}:\n{round_harvest_stats[curr_round]}"
+      f" {ctx.round_num}:\n{ctx.round_harvest_stats[ctx.round_num]}"
   )
-  print(f"FINAL HARVEST REPORT - ROUND {curr_round}:\n{harvest_report}")
+  print(
+      f"FINAL HARVEST REPORT - ROUND {ctx.round_num}:\n"
+      f"{ctx.harvest_report}"
+  )
   cognition_utils.log_to_file(
-      log_type="round_stats", data=round_stats, log_path=consolidated_log_path
+      log_type="round_stats",
+      data=ctx.round_stats,
+      log_path=ctx.consolidated_log_path,
   )
   cognition_utils.log_to_file(
       log_type="harvest",
-      data=round_harvest_stats,
-      log_path=consolidated_log_path,
+      data=ctx.round_harvest_stats,
+      log_path=ctx.consolidated_log_path,
   )
   cognition_utils.log_to_file(
-      log_type="sim-end", data=None, log_path=consolidated_log_path
+      log_type="sim-end",
+      data=None,
+      log_path=ctx.consolidated_log_path,
   )
-  env.save_log()
-  for persona in personas:
-    personas[persona].memory.save()
+  ctx.env.save_log()
+  for persona in ctx.personas:
+    ctx.personas[persona].memory.save()
