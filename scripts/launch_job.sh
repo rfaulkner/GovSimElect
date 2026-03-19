@@ -56,4 +56,4 @@ else
   ARG3="$3"
 fi
 
-python3 -m simulation.main_elect experiment=$experiment llm.path=$model_id experiment.seed=$ARG1 experiment.agent.leader_population=$ARG2 experiment.env.disinformation=$ARG3
+python3 -m simulation.main experiment=$experiment llm.path=$model_id experiment.seed=$ARG1 experiment.agent.leader_population=$ARG2 experiment.env.disinformation=$ARG3

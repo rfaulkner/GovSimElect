@@ -92,7 +92,7 @@ Arguments are the same as above. The `model_id` variable in the script selects t
 - **OpenAI**: GPT-4-Turbo, GPT-4o, GPT-3.5-Turbo
 - **Anthropic**: Claude 3.5 Sonnet, Claude 3.5 Haiku (via OpenRouter)
 
-There is also `launch_job_api_vanilla.sh` which runs the original GovSim simulation (without the election mechanism) using API-based models. This uses `simulation.main` instead of `simulation.main_elect`.
+There is also `launch_job_api_vanilla.sh` which runs the original GovSim simulation (without the election mechanism) using API-based models.
 
 ### Batch Experiments
 

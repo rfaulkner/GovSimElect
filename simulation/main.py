@@ -1,150 +1,70 @@
+"""Main file for GovSim Election simulation."""
+
 import os
+from pathlib import Path
 import shutil
+import sys
 import uuid
 
+project_root = Path(__file__).resolve().parent.parent
+sys.path.append(str(project_root))
+
 import hydra
-import numpy as np
-from hydra import compose, initialize
-from hydra.core.global_hydra import GlobalHydra
+import wandb
 from omegaconf import DictConfig, OmegaConf
 from transformers import set_seed
 
-import wandb
-from pathfinder import get_model
 from simulation.utils import ModelWandbWrapper, WandbLogger
+from pathfinder import get_model
 
 from .persona import EmbeddingModel
-from .scenarios.fishing.run import run as run_scenario_fishing
-from .scenarios.pollution.run import run as run_scenario_pollution
-from .scenarios.sheep.run import run as run_scenario_sheep
+from simulation.run import run as run_scenario_fishing
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+@hydra.main(version_base=None, config_path="conf", config_name="config_api")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
-    set_seed(cfg.seed)
+    set_seed(cfg.experiment.seed)
 
-    logger = WandbLogger(cfg.experiment.name, OmegaConf.to_object(cfg), debug=cfg.debug)
-    run_name = logger.run_name if logger.run_name else f"{cfg.llm.path}_run_{cfg.llm.iter}_vanilla"
+    model = get_model(
+        cfg.llm.path, cfg.llm.is_api, cfg.experiment.seed, cfg.llm.backend
+    )
+    logger = WandbLogger(
+        cfg.experiment.name, OmegaConf.to_object(cfg), debug=cfg.debug
+    )
+    run_name = (
+        logger.run_name
+        if logger.run_name
+        else f"{cfg.llm.path}_disinfo_{cfg.experiment.env.disinformation}_population_{cfg.experiment.agent.leader_population}_run_{cfg.experiment.seed}"
+    )
     if "gpt" in cfg.llm.path:
         run_name = os.path.join("gpt", run_name)
     experiment_storage = os.path.join(
         os.path.dirname(__file__),
         f"./results/{cfg.experiment.name}/{run_name}",
     )
+    if os.path.exists(f"{experiment_storage}"):
+        shutil.rmtree(experiment_storage)
+        print(f"Removed old '{experiment_storage}' ...")
+    print(f"Experiment storage: {experiment_storage}")
 
-    if len(cfg.mix_llm) == 0:
-        model = get_model(cfg.llm.path, cfg.llm.is_api, cfg.seed, cfg.llm.backend)
-
-        wrapper = ModelWandbWrapper(
-            model,
-            render=cfg.llm.render,
-            wanbd_logger=logger,
-            temperature=cfg.llm.temperature,
-            top_p=cfg.llm.top_p,
-            seed=cfg.seed,
-            is_api=cfg.llm.is_api,
-        )
-        wrappers = [wrapper] * cfg.experiment.personas.num
-        wrapper_framework = wrapper
-    else:
-        if len(cfg.mix_llm) != cfg.experiment.personas.num:
-            raise ValueError(
-                f"Length of mix_llm should be equal to personas.num: {cfg.experiment.personas.num}"
-            )
-        unique_configs = {}
-        wrappers = []
-
-        for idx, llm_config in enumerate(cfg.mix_llm):
-            llm_config = llm_config.llm
-            config_key = (
-                llm_config.path,
-                llm_config.is_api,
-                llm_config.backend,
-                llm_config.temperature,
-                llm_config.top_p,
-                llm_config.gpu_list,
-            )
-            if config_key not in unique_configs:
-                # Initialize the model only if its config is not already in the unique set
-                model = get_model(
-                    llm_config.path,
-                    llm_config.is_api,
-                    cfg.seed,
-                    llm_config.backend,
-                    llm_config.gpu_list,
-                )
-                wrapper = ModelWandbWrapper(
-                    model,
-                    render=llm_config.render,
-                    wanbd_logger=logger,
-                    temperature=llm_config.temperature,
-                    top_p=llm_config.top_p,
-                    seed=cfg.seed,
-                    is_api=llm_config.is_api,
-                )
-                unique_configs[config_key] = wrapper
-
-            # Use the already initialized wrapper for this configuration
-            wrappers.append(unique_configs[config_key])
-
-        # The last wrapper is the framework
-        llm_framework_config = cfg.framework_model
-        config_key = (
-            llm_framework_config.path,
-            llm_framework_config.is_api,
-            llm_framework_config.backend,
-            llm_framework_config.temperature,
-            llm_framework_config.top_p,
-            llm_framework_config.gpu_list,
-        )
-        if config_key not in unique_configs:
-            model = get_model(
-                llm_framework_config.path,
-                llm_framework_config.is_api,
-                cfg.seed,
-                llm_framework_config.backend,
-                llm_framework_config.gpu_list,
-            )
-            wrapper_framework = ModelWandbWrapper(
-                model,
-                render=llm_framework_config.render,
-                wanbd_logger=logger,
-                temperature=llm_framework_config.temperature,
-                top_p=llm_framework_config.top_p,
-                seed=cfg.seed,
-                is_api=llm_framework_config.is_api,
-            )
-            unique_configs[config_key] = wrapper_framework
-        else:
-            wrapper_framework = unique_configs[config_key]
-
+    wrapper = ModelWandbWrapper(
+        model,
+        render=cfg.llm.render,
+        wanbd_logger=logger,
+        temperature=cfg.llm.temperature,
+        top_p=cfg.llm.top_p,
+        seed=cfg.experiment.seed,
+        is_api=cfg.llm.is_api,
+    )
     embedding_model = EmbeddingModel(device="cpu")
 
     if cfg.experiment.scenario == "fishing":
         run_scenario_fishing(
             cfg.experiment,
             logger,
-            wrappers,
-            wrapper_framework,
-            embedding_model,
-            experiment_storage,
-        )
-    elif cfg.experiment.scenario == "sheep":
-        run_scenario_sheep(
-            cfg.experiment,
-            logger,
-            wrappers,
-            wrapper_framework,
-            embedding_model,
-            experiment_storage,
-        )
-    elif cfg.experiment.scenario == "pollution":
-        run_scenario_pollution(
-            cfg.experiment,
-            logger,
-            wrappers,
-            wrapper_framework,
+            wrapper,
+            wrapper,
             embedding_model,
             experiment_storage,
         )
@@ -152,9 +72,12 @@ def main(cfg: DictConfig):
         raise ValueError(f"Unknown experiment.scenario: {cfg.experiment.scenario}")
 
     hydra_log_path = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    if os.path.exists(f"{experiment_storage}/.hydra/"):
+        shutil.rmtree(f"{experiment_storage}/.hydra/")
     shutil.copytree(f"{hydra_log_path}/.hydra/", f"{experiment_storage}/.hydra/")
-    shutil.copy(f"{hydra_log_path}/main.log", f"{experiment_storage}/main.log")
-    # shutil.rmtree(hydra_log_path)
+    shutil.copy(
+        f"{hydra_log_path}/main.log", f"{experiment_storage}/main.log"
+    )
 
     artifact = wandb.Artifact("hydra", type="log")
     artifact.add_dir(f"{experiment_storage}/.hydra/")

@@ -23,7 +23,5 @@ hydra:
   run:
     dir: ./outputs/${uuid:}
   searchpath:
-    - ./simulation/scenarios/fishing/conf
-    - ./simulation/scenarios/sheep/conf
-    - ./simulation/scenarios/pollution/conf
+    - ./simulation/conf
 

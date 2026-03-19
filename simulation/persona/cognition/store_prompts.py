@@ -32,7 +32,7 @@ def prompt_importance_chat(
         lm = model.select(
             lm,
             options=[str(i) for i in range(1, 11)],
-            default_value="5",  # Assuming a neutral default value for guidance
+            default_value="5",
             name="significance",
         )
         significance = int(lm["significance"])
@@ -63,7 +63,7 @@ def prompt_importance_event(
             lm,
             options=[str(i) for i in range(1, 11)],
             name="significance",
-            default_value="5",  # assuming a neutral default value for better user guidance
+            default_value="5",
         )
         importance_score = int(lm["significance"])
 
@@ -94,7 +94,7 @@ def prompt_importance_thought(
         lm = model.select(
             lm,
             options=[str(i) for i in range(1, 11)],
-            default_value="5",  # Assuming a neutral default value for guidance
+            default_value="5",
             name="significance_rating",
         )
         significance_rating = int(lm["significance_rating"])
@@ -126,7 +126,7 @@ def prompt_importance_action(
         lm = model.select(
             lm,
             options=[str(i) for i in range(1, 11)],
-            default_value="5",  # Setting a neutral default value for guidance
+            default_value="5",
             name="significance_rating",
         )
         significance_rating = int(lm["significance_rating"])

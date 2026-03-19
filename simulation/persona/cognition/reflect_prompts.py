@@ -55,7 +55,6 @@ def prompt_insight_and_evidence(
                     acc.append(evidence.strip())
                     continue
                 else:
-                    # no more evidence
                     acc.append(evidence.strip())
                     break
         model.end_chain(persona.name, lm)

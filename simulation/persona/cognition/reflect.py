@@ -1,14 +1,17 @@
+"""Reflect cognition component — handles insights and conversation reflection."""
+
 from simulation.utils import ModelWandbWrapper
 
 from ..common import ChatObservation, PersonaIdentity
 from .component import Component
+from .reflect_prompts import (
+    prompt_insight_and_evidence,
+    prompt_memorize_from_conversation,
+    prompt_planning_thought_on_conversation,
+)
 
 
 class ReflectComponent(Component):
-
-    prompt_insight_and_evidence: callable
-    prompt_planning_thought_on_conversation: callable
-    prompt_memorize_from_conversation: callable
 
     def __init__(
         self,
@@ -22,7 +25,7 @@ class ReflectComponent(Component):
         for focal_point in focal_points:
             retireved_memory = self.persona.retrieve.retrieve([focal_point], 10)
 
-            insights = self.prompt_insight_and_evidence(
+            insights = prompt_insight_and_evidence(
                 self.model, self.persona.identity, retireved_memory
             )
             for insight in insights:
@@ -30,11 +33,11 @@ class ReflectComponent(Component):
                 acc.append(insight)
 
     def reflect_on_convesation(self, conversation: list[tuple[str, str]]):
-        planning = self.prompt_planning_thought_on_conversation(
+        planning = prompt_planning_thought_on_conversation(
             self.model, self.persona.identity, conversation
-        )  # TODO should be this be store in scratch for planning?
+        )
         self.persona.store.store_thought(planning, self.persona.current_time)
-        memo = self.prompt_memorize_from_conversation(
+        memo = prompt_memorize_from_conversation(
             self.model, self.persona.identity, conversation
         )
         self.persona.store.store_thought(memo, self.persona.current_time)

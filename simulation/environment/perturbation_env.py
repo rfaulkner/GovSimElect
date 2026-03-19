@@ -1,3 +1,5 @@
+"""Perturbation environment extending the concurrent environment."""
+
 import math
 from datetime import datetime, timedelta
 
@@ -20,17 +22,8 @@ from .concurrent_env import (
     get_discussion_day,
     get_expiration_next_month,
     get_reflection_day,
+    tons_caught_home,
 )
-
-"""
-Uses the env.perturbations settins
-
-Perturbation:
-name: NAME
-round: ROUND_AT_WHICH_TO_APPLY
-
-
-"""
 
 
 class PerturbationEnv(ConcurrentEnv):
@@ -43,14 +36,15 @@ class PerturbationEnv(ConcurrentEnv):
         self.perturbation = cfg.perturbations[0].perturbation
 
     def _prompt_home_observe_agent_resource(self, agent):
-        raise NotImplementedError
+        caught = self.internal_global_state["last_collected_resource"][agent]
+        agent_name = self.agent_id_to_name[agent]
+        return tons_caught_home(agent_name, caught)
 
     def _observe_home(self, agent) -> HarvestingObs:
         if (
             self.cfg.language_nature == "none"
             or self.cfg.language_nature == "none_and_no_obs"
         ):
-            # Inject what each person has fished
             events = []
             if self.cfg.language_nature == "none":
                 for agent in self.agents:
@@ -83,7 +77,6 @@ class PerturbationEnv(ConcurrentEnv):
         return state
 
     def _step_pool_after_harvesting(self, action: PersonaActionHarvesting):
-        # We have no interaction with other agents at the lake
         self.internal_global_state["next_location"][self.agent_selection] = "restaurant"
         self.internal_global_state["next_time"][self.agent_selection] = (
             get_discussion_day(
@@ -91,7 +84,6 @@ class PerturbationEnv(ConcurrentEnv):
             )
         )
 
-        # Apply perturbations
         if (
             self.cfg.language_nature == "none"
             or self.cfg.language_nature == "none_and_no_obs"
@@ -103,7 +95,6 @@ class PerturbationEnv(ConcurrentEnv):
                 )
             )
 
-        # Next phase / next agent
         if self._agent_selector.is_last():
             self.phase = self._phase_selector.next()
         self.agent_selection = self._agent_selector.next()
@@ -131,8 +122,6 @@ class PerturbationEnv(ConcurrentEnv):
                 self.save_log()
                 self.num_round += 1
 
-                ## Apply perturbations, now we assume we have only 1
-
                 if self.num_round == self.perturbation.round:
                     if self.perturbation.type == "change_language_nature" and (
                         self.perturbation.language_nature == "none"
@@ -149,7 +138,6 @@ class PerturbationEnv(ConcurrentEnv):
 
                 self.phase = self._phase_selector.next()
 
-                # We want to see also the discussion in case no fish remain
                 self.terminations = {
                     agent: (
                         self.internal_global_state["resource_in_pool"] < 5
@@ -161,7 +149,7 @@ class PerturbationEnv(ConcurrentEnv):
                 self.internal_global_state["resource_in_pool"] = min(
                     self.cfg.initial_resource_in_pool,
                     self.internal_global_state["resource_in_pool"] * 2,
-                )  # Double the fish in the lake, but cap at 100
+                )
                 self.internal_global_state["resource_before_harvesting"] = (
                     self.internal_global_state["resource_in_pool"]
                 )
