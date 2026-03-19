@@ -10,11 +10,11 @@ from pathfinder import user
 from simulation.persona import persona as persona_lib
 from simulation.persona.cognition import leaders as leaders_lib
 from simulation.persona.cognition import utils as cognition_utils
-from simulation import utils as sim_utils
+from simulation.utils import models as sim_models
 
 
 def prompt_action_choose_amount_of_fish_to_catch(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     agent: persona_lib.PersonaAgent,
     memories: list[str],
     current_location: str,
@@ -113,7 +113,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
 
 
 def prompt_election_vote(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     agent: persona_lib.PersonaAgent,
     memories: list[str],
     current_location: str,

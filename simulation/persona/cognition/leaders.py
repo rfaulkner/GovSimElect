@@ -8,7 +8,7 @@ import enum
 import numpy as np
 from pathfinder import assistant
 from pathfinder import user
-from simulation import utils as sim_utils
+from simulation.utils import models as sim_models
 from simulation.environment import concurrent_env
 from simulation.persona import common
 from simulation.persona import persona as persona_lib
@@ -118,7 +118,7 @@ def svo_angle_prompt(
 
 
 def prompt_leader_agenda(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     init_persona: persona_lib.PersonaAgent,
     current_location: str,
     current_time: datetime,
@@ -205,7 +205,7 @@ def prompt_leader_agenda(
 
 
 def prompt_harvest_report(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     init_persona: persona_lib.PersonaAgent,
     true_report: str,
     init_retrieved_memory: list[str],
@@ -337,7 +337,7 @@ def make_leader_report(
     personas: dict[str, persona_lib.PersonaAgent],
     leader_candidates: dict[str, persona_lib.PersonaAgent],
     current_time: datetime,
-    wrapper: sim_utils.ModelWandbWrapper,
+    wrapper: sim_models.ModelWandbWrapper,
     disinformation: bool,
     agenda: str,
     curr_round: int,

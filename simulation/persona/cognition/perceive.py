@@ -1,6 +1,6 @@
 """Perceive cognition component — handles observations and events."""
 
-from simulation import utils as sim_utils
+from simulation.utils import models as sim_models
 from simulation.persona import common
 from simulation.persona.cognition import component
 
@@ -10,8 +10,8 @@ class PerceiveComponent(component.Component):
 
   def __init__(
       self,
-      model: sim_utils.ModelWandbWrapper,
-      model_framework: sim_utils.ModelWandbWrapper,
+      model: sim_models.ModelWandbWrapper,
+      model_framework: sim_models.ModelWandbWrapper,
   ):
     """Initialize the perceive component."""
     super().__init__(model, model_framework)

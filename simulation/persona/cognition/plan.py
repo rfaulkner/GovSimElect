@@ -1,6 +1,6 @@
 """Plan cognition component — handles future planning."""
 
-from simulation import utils as sim_utils
+from simulation.utils import models as sim_models
 from simulation.persona.cognition import component
 
 
@@ -9,8 +9,8 @@ class PlanComponent(component.Component):
 
   def __init__(
       self,
-      model: sim_utils.ModelWandbWrapper,
-      model_framework: sim_utils.ModelWandbWrapper,
+      model: sim_models.ModelWandbWrapper,
+      model_framework: sim_models.ModelWandbWrapper,
   ):
     """Initialize the plan component."""
     super().__init__(model, model_framework)

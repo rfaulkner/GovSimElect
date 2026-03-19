@@ -10,27 +10,24 @@ import enum
 import os
 from typing import Any
 
-from simulation.persona.common import (
-    ChatObservation,
-    PersonaAction,
-    PersonaActionChat,
-    PersonaActionHarvesting,
-    PersonaIdentity,
-    PersonaOberservation,
-)
-from simulation.utils import ModelWandbWrapper
+from simulation.persona.common import ChatObservation
+from simulation.persona.common import PersonaAction
+from simulation.persona.common import PersonaActionChat
+from simulation.persona.common import PersonaActionHarvesting
+from simulation.persona.common import PersonaIdentity
+from simulation.persona.common import PersonaOberservation
+from simulation.utils.models import ModelWandbWrapper
 
-from .cognition import (
-    ActComponent,
-    ConverseComponent,
-    PerceiveComponent,
-    PlanComponent,
-    ReflectComponent,
-    RetrieveComponent,
-    StoreComponent,
-)
-from .embedding_model import EmbeddingModel
-from .memory import AssociativeMemory, Scratch
+from simulation.persona.cognition.act import ActComponent
+from simulation.persona.cognition.converse import ConverseComponent
+from simulation.persona.cognition.perceive import PerceiveComponent
+from simulation.persona.cognition.plan import PlanComponent
+from simulation.persona.cognition.reflect import ReflectComponent
+from simulation.persona.cognition.retrieve import RetrieveComponent
+from simulation.persona.cognition.store import StoreComponent
+from simulation.persona.embedding_model import EmbeddingModel
+from simulation.persona.memory.associative_memory import AssociativeMemory
+from simulation.persona.memory.scratch import Scratch
 
 
 class SVOPersonaType(enum.Enum):

@@ -11,10 +11,10 @@ import random
 import numpy as np
 import omegaconf
 
-from simulation.environment import ConcurrentEnv
-from simulation.environment import PerturbationEnv
-from simulation.persona import EmbeddingModel
-from simulation.persona import SVOPersonaType
+from simulation.environment.concurrent_env import ConcurrentEnv
+from simulation.environment.perturbation_env import PerturbationEnv
+from simulation.persona.embedding_model import EmbeddingModel
+from simulation.persona.persona import SVOPersonaType
 from simulation.persona.cognition import leaders as leaders_lib
 from simulation.persona.cognition import utils as cognition_utils
 from simulation.persona.common import PersonaActionHarvesting
@@ -23,7 +23,7 @@ from simulation.persona.common import PersonaEvent
 from simulation.persona.common import PersonaIdentity
 from simulation.persona.persona import DEFAULT_AGENDA
 from simulation.persona.persona import PersonaAgent
-from simulation.utils import ModelWandbWrapper
+from simulation.utils.models import ModelWandbWrapper
 
 
 cognition_utils.SYS_VERSION = "v3"

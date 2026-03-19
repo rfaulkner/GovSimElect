@@ -1,10 +1,10 @@
 """Converse cognition component — handles group conversations."""
 
-import random
 import datetime
+import random
 
+from simulation.utils import models as sim_models
 from simulation.persona import common
-from simulation import utils as sim_utils
 from simulation.persona.cognition import component
 from simulation.persona.cognition import converse_prompts
 from simulation.persona.cognition import reflect_prompts
@@ -16,8 +16,8 @@ class ConverseComponent(component.Component):
 
   def __init__(
       self,
-      model: sim_utils.ModelWandbWrapper,
-      model_framework: sim_utils.ModelWandbWrapper,
+      model: sim_models.ModelWandbWrapper,
+      model_framework: sim_models.ModelWandbWrapper,
       retrieve: retrieve_mod.RetrieveComponent,
       cfg=None,
   ):

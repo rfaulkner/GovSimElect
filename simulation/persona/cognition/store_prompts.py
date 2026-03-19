@@ -5,11 +5,11 @@ from pathfinder import user
 from simulation.persona.cognition import utils as cognition_utils
 from simulation.persona import common
 from simulation.persona.memory import associative_memory
-from simulation import utils as sim_utils
+from simulation.utils import models as sim_models
 
 
 def prompt_importance_chat(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     persona: common.PersonaIdentity,
     chat: associative_memory.Chat,
 ):
@@ -44,7 +44,7 @@ def prompt_importance_chat(
 
 
 def prompt_importance_event(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     persona: common.PersonaIdentity,
     event: associative_memory.Event,
 ):
@@ -80,7 +80,7 @@ def prompt_importance_event(
 
 
 def prompt_importance_thought(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     persona: common.PersonaIdentity,
     thought: associative_memory.Thought,
 ):
@@ -117,7 +117,7 @@ def prompt_importance_thought(
 
 
 def prompt_importance_action(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     persona: common.PersonaIdentity,
     action: associative_memory.Action,
 ):
@@ -154,7 +154,7 @@ def prompt_importance_action(
 
 
 def prompt_text_to_triple(
-    model: sim_utils.ModelWandbWrapper, text: str,
+    model: sim_models.ModelWandbWrapper, text: str,
 ):
   """Split text into subject, predicate, and object."""
   lm = model.start_chain(

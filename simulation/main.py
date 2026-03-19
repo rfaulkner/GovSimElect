@@ -14,10 +14,11 @@ import wandb
 from omegaconf import DictConfig, OmegaConf
 from transformers import set_seed
 
-from simulation.utils import ModelWandbWrapper, WandbLogger
+from simulation.utils.models import ModelWandbWrapper
+from simulation.utils.logger import WandbLogger
 from pathfinder import get_model
 
-from .persona import EmbeddingModel
+from simulation.persona.embedding_model import EmbeddingModel
 from simulation.run import run as run_scenario_fishing
 
 

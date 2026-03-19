@@ -4,7 +4,7 @@ import datetime
 
 import numpy as np
 
-from simulation import utils as sim_utils
+from simulation.utils import models as sim_models
 from simulation.persona import embedding_model as embed_mod
 from simulation.persona.memory import associative_memory
 from simulation.persona.cognition import component
@@ -39,8 +39,8 @@ class RetrieveComponent(component.Component):
 
   def __init__(
       self,
-      model: sim_utils.ModelWandbWrapper,
-      model_framework: sim_utils.ModelWandbWrapper,
+      model: sim_models.ModelWandbWrapper,
+      model_framework: sim_models.ModelWandbWrapper,
       memory: associative_memory.AssociativeMemory,
       emb_model: embed_mod.EmbeddingModel,
   ):

@@ -7,14 +7,14 @@ import os
 
 from pathfinder import assistant
 from pathfinder import user
+from simulation.utils import models as sim_models
 from simulation.persona import persona as persona_lib
 from simulation.persona.cognition import leaders as leaders_lib
 from simulation.persona.cognition import utils as cognition_utils
-from simulation import utils as sim_utils
 
 
 def prompt_converse_utterance_in_group(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     init_persona: persona_lib.PersonaAgent,
     target_personas: list[persona_lib.PersonaAgent],
     init_retrieved_memory: list[str],
@@ -160,7 +160,7 @@ def prompt_converse_utterance_in_group(
 
 
 def prompt_summarize_conversation_in_one_sentence(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     conversation: list[tuple[str, str]],
 ) -> tuple[str, str]:
   """Summarize a conversation in a single sentence."""

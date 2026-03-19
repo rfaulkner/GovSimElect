@@ -2,13 +2,13 @@
 
 from pathfinder import assistant
 from pathfinder import user
-from simulation import utils as sim_utils
+from simulation.utils import models as sim_models
 from simulation.persona import common
 from simulation.persona.cognition import utils as cognition_utils
 
 
 def prompt_insight_and_evidence(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     persona: common.PersonaIdentity,
     statements: list[str],
 ):
@@ -62,7 +62,7 @@ def prompt_insight_and_evidence(
 
 
 def prompt_planning_thought_on_conversation(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     persona: common.PersonaIdentity,
     conversation: list[tuple[str, str]],
 ) -> str:
@@ -91,7 +91,7 @@ def prompt_planning_thought_on_conversation(
 
 
 def prompt_memorize_from_conversation(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     persona: common.PersonaIdentity,
     conversation: list[tuple[str, str]],
 ) -> str:
@@ -120,7 +120,7 @@ def prompt_memorize_from_conversation(
 
 
 def prompt_find_harvesting_limit_from_conversation(
-    model: sim_utils.ModelWandbWrapper,
+    model: sim_models.ModelWandbWrapper,
     conversation: list[tuple[str, str]],
 ) -> tuple[int, str]:
   """Find the harvesting limit agreed upon in a conversation."""
