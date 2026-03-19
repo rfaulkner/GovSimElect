@@ -164,13 +164,26 @@ The analysis modules in `simulation/analysis/` include plotting (`plots.py`), pr
 GovSimElect/
 ├── scripts/               # Launch scripts for simulations and analyses
 ├── simulation/
-│   ├── main.py            # Original GovSim simulation entrypoint
-│   ├── main_elect.py      # GovSimElect simulation entrypoint (with elections)
+│   ├── main.py            # Simulation entrypoint (Hydra-based)
+│   ├── run.py             # Simulation loop — builds and executes phases
 │   ├── analysis/          # Analysis and plotting modules
 │   ├── conf/              # Hydra configuration files
-│   ├── persona/           # Agent persona definitions
-│   ├── scenarios/         # Scenario configurations
-│   └── utils/             # Simulation utilities
+│   │   ├── config.yaml    # Top-level Hydra config
+│   │   └── experiment/    # Experiment YAML variants
+│   ├── environment/       # Environment classes (ConcurrentEnv, PerturbationEnv)
+│   ├── persona/           # Agent state, cognition components, memory
+│   │   ├── persona.py     # PersonaAgent — stateful agent container
+│   │   ├── cognition/     # Act, Converse, Reflect, Leaders, etc.
+│   │   ├── memory/        # Associative memory and scratch
+│   │   └── common.py      # Shared data structures
+│   ├── phases/            # Modular simulation phase classes
+│   │   ├── base.py        # Phase ABC, PhaseContext, shared helpers
+│   │   ├── policy_making.py
+│   │   ├── election.py
+│   │   ├── harvesting.py
+│   │   ├── discussion.py
+│   │   └── reflection.py
+│   └── utils/             # Logger, model wrappers
 ├── llm_judge/             # LLM-as-judge evaluation framework
 ├── utils/                 # General utilities
 ├── setup.sh               # Default setup (Conda)
@@ -179,3 +192,186 @@ GovSimElect/
 ├── requirements.txt       # Pip dependencies (default)
 └── requirements_venv.txt  # Pip dependencies (venv / cluster)
 ```
+
+## Simulation Configuration
+
+Simulation behavior is controlled by [Hydra](https://hydra.cc/) YAML files in `simulation/conf/`. The top-level `config.yaml` sets global defaults (LLM path, debug flags), while experiment-specific files in `conf/experiment/` define agent populations, environment parameters, and phase ordering.
+
+### Experiment YAML Structure
+
+Each experiment file (e.g. `fish_baseline_concurrent_leaders.yaml`) configures:
+
+| Section | Purpose |
+|---------|---------|
+| `phases` | Ordered list of simulation phase names (see below) |
+| `env` | Environment parameters — resource pool, regeneration, harvesting order, perturbations |
+| `personas` | Agent definitions — names, traits, number of agents |
+| `agent` | Agent cognition settings — prompts, conversation limits, leader population type |
+
+**Example experiment config:**
+
+```yaml
+name: fishing_${code_version}/${group_name}
+scenario: fishing
+debug: true
+seed: 0
+
+phases:
+  - policy_making
+  - election
+  - harvesting
+  - discussion
+  - reflection
+
+env:
+  max_num_rounds: 6
+  initial_resource_in_pool: 100
+  num_agents: 8
+  disinformation: false
+  harvesting_order: concurrent
+  regen_factor_range: [1.0, 3.0]
+
+agent:
+  leader_population: balanced    # balanced, none, one_prosocial, etc.
+  act:
+    harvest_strategy: one_step
+  converse:
+    max_conversation_steps: 50
+```
+
+### Key Configuration Options
+
+**`env.disinformation`** — When `true`, elected leaders can inject disinformation into harvest reports.
+
+**`agent.leader_population`** — Controls the Social Value Orientation (SVO) distribution of leader candidates: `balanced`, `none` (no leaders), `one_prosocial`, `one_competitive`, etc.
+
+**`env.harvesting_order`** — Either `concurrent` (all agents harvest simultaneously) or `random-sequential`.
+
+## Simulation Phases
+
+The simulation is organized into configurable **phases** that execute in sequence each round. Phase ordering is defined by the `phases` list in the experiment YAML.
+
+### Default Phase Order
+
+```
+PolicyMaking → Election → Harvesting(+Report) → Discussion → Reflection
+```
+
+### Built-in Phases
+
+| Phase Name | Class | Description |
+|------------|-------|-------------|
+| `policy_making` | `PolicyMakingPhase` | Leaders generate policy agendas based on SVO, past harvest data, and the previous winning agenda |
+| `election` | `ElectionPhase` | Non-leader agents vote on leader agendas; winner is determined and announced |
+| `harvesting` | `HarvestingPhase` | Agents decide how many fish to catch; harvest report and public memories are generated at the end |
+| `discussion` | `DiscussionPhase` | Group conversation at the restaurant — agents discuss strategy and share information |
+| `reflection` | `ReflectionPhase` | Individual reflection at home — agents process the round's events into memories |
+
+### Customizing Phase Order
+
+To change the phase order, edit the `phases` list in your experiment YAML. For example, to run discussion before harvesting:
+
+```yaml
+phases:
+  - policy_making
+  - election
+  - discussion
+  - harvesting
+  - reflection
+```
+
+To run without elections (e.g. for a no-leader experiment):
+
+```yaml
+phases:
+  - harvesting
+  - discussion
+  - reflection
+```
+
+### Creating Custom Phases
+
+You can add new phases by implementing the `Phase` abstract base class and registering them in `run.py`.
+
+#### Step 1: Create the phase class
+
+Create a new file in `simulation/phases/`, e.g. `my_phase.py`:
+
+```python
+"""MyPhase — description of what this phase does."""
+
+from simulation.phases.base import Phase
+from simulation.phases.base import PhaseContext
+
+
+class MyPhase(Phase):
+    """One-line summary."""
+
+    @property
+    def name(self) -> str:
+        return "my_phase"
+
+    def execute(self, ctx: PhaseContext) -> PhaseContext:
+        # Access agents via ctx.personas (dict of PersonaAgent)
+        # Access environment via ctx.env
+        # Access config via ctx.cfg
+        # Access the current observation via ctx.obs
+
+        for agent_id, agent in ctx.personas.items():
+            # Do something with each agent...
+            pass
+
+        # If stepping the environment:
+        # ctx.agent_id, ctx.obs, _, termination = ctx.env.step(action)
+
+        return ctx
+```
+
+The `PhaseContext` dataclass carries all mutable state between phases:
+- **`ctx.personas`** — dict of agent ID → `PersonaAgent`
+- **`ctx.env`** — the environment instance
+- **`ctx.obs`** — current observation from the environment
+- **`ctx.wrapper`** — LLM model wrapper for prompting
+- **`ctx.round_num`** — current round number
+- **`ctx.winner`** / **`ctx.agenda`** — current election results
+- **`ctx.round_harvest_stats`** — per-round harvest data
+- **`ctx.terminated`** — set to `True` to end the simulation
+
+#### Step 2: Register the phase
+
+In `simulation/run.py`, import your phase and add it to `PHASE_REGISTRY`:
+
+```python
+from simulation.phases.my_phase import MyPhase
+
+PHASE_REGISTRY = {
+    "policy_making": PolicyMakingPhase,
+    "election": ElectionPhase,
+    "harvesting": HarvestingPhase,
+    "discussion": DiscussionPhase,
+    "reflection": ReflectionPhase,
+    "my_phase": MyPhase,  # Add your phase here
+}
+```
+
+#### Step 3: Use it in config
+
+Add the phase name to your experiment YAML:
+
+```yaml
+phases:
+  - policy_making
+  - election
+  - harvesting
+  - my_phase
+  - discussion
+  - reflection
+```
+
+#### Tips for Phase Development
+
+- **Environment coordination**: The environment has internal sub-phases (`lake`, `pool_after_harvesting`, `restaurant`, `home`). If your phase needs to drive environment steps, use `while ctx.env.phase == "phase_name":` loops to stay in sync.
+- **Termination**: Always check for termination after `env.step()` calls using `check_terminated(ctx, termination)` from `simulation.phases.base`.
+- **Agent state sync**: Call `sync_agent_state(agent, ctx)` to push the current agenda, harvest report, and leader info onto an agent before it acts.
+- **Logging**: Use `log_step(ctx, action)` after each `env.step()` to record game metrics.
+
