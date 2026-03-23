@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import enum
 
@@ -458,3 +459,93 @@ def get_leader_persona_prompts(
     else:
       leader_prompt = f"{leader_name} is the current leader.\n"
   return svo_prompt, disinfo_prompt, leader_prompt
+
+
+# ── Async wrappers ─────────────────────────────────────────────────────
+
+
+async def aprompt_leader_agenda(
+    model: sim_models.ModelWandbWrapper,
+    init_persona: persona_lib.PersonaAgent,
+    current_location: str,
+    current_time: datetime,
+    init_retrieved_memory: list[str],
+    total_fishers: int,
+    svo_angle: float,
+    last_winning_agenda: str | None = None,
+    harvest_report: str | None = None,
+    harvest_stats: str | None = None,
+    use_disinfo: bool = False,
+    debug: bool = False,
+) -> tuple[str, str]:
+  """Async version of ``prompt_leader_agenda`` — runs in a thread pool."""
+  return await asyncio.to_thread(
+      prompt_leader_agenda,
+      model,
+      init_persona,
+      current_location,
+      current_time,
+      init_retrieved_memory,
+      total_fishers,
+      svo_angle,
+      last_winning_agenda=last_winning_agenda,
+      harvest_report=harvest_report,
+      harvest_stats=harvest_stats,
+      use_disinfo=use_disinfo,
+      debug=debug,
+  )
+
+
+async def aprompt_harvest_report(
+    model: sim_models.ModelWandbWrapper,
+    init_persona: persona_lib.PersonaAgent,
+    true_report: str,
+    init_retrieved_memory: list[str],
+    svo_angle: float,
+    agenda: str | None = None,
+    regen_factor: float | None = None,
+    debug: bool = False,
+) -> str:
+  """Async version of ``prompt_harvest_report`` — runs in a thread pool."""
+  return await asyncio.to_thread(
+      prompt_harvest_report,
+      model,
+      init_persona,
+      true_report,
+      init_retrieved_memory,
+      svo_angle,
+      agenda=agenda,
+      regen_factor=regen_factor,
+      debug=debug,
+  )
+
+
+async def amake_leader_report(
+    personas: dict[str, persona_lib.PersonaAgent],
+    leader_candidates: dict[str, persona_lib.PersonaAgent],
+    current_time: datetime,
+    wrapper: sim_models.ModelWandbWrapper,
+    disinformation: bool,
+    agenda: str,
+    curr_round: int,
+    winner_id: str,
+    round_harvest_stats: dict[str, int],
+    regen_factor: float | None = None,
+    debug: bool = False,
+) -> str:
+  """Async version of ``make_leader_report`` — runs in a thread pool."""
+  return await asyncio.to_thread(
+      make_leader_report,
+      personas,
+      leader_candidates,
+      current_time,
+      wrapper,
+      disinformation,
+      agenda,
+      curr_round,
+      winner_id,
+      round_harvest_stats,
+      regen_factor=regen_factor,
+      debug=debug,
+  )
+

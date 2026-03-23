@@ -5,6 +5,8 @@ Each leader candidate crafts an agenda influenced by their SVO,
 past harvest data, and the previous winning agenda (if any).
 """
 
+import asyncio
+
 from simulation.persona.cognition import leaders as leaders_lib
 
 from simulation.phases.base import Phase
@@ -18,7 +20,7 @@ class PolicyMakingPhase(Phase):
   def name(self) -> str:
     return "policy_making"
 
-  def execute(self, ctx: PhaseContext) -> PhaseContext:
+  async def execute(self, ctx: PhaseContext) -> PhaseContext:
     if not ctx.leader_candidates:
       return ctx
 
@@ -28,9 +30,8 @@ class PolicyMakingPhase(Phase):
           "\n=================="
       )
 
-    leader_agendas = {}
-    for _, leader in ctx.leader_candidates.items():
-      agenda, _ = leaders_lib.prompt_leader_agenda(
+    async def one_leader_agenda(leader):
+      agenda, _ = await leaders_lib.aprompt_leader_agenda(
           model=ctx.wrapper,
           init_persona=leader,
           current_location="restaurant",
@@ -49,7 +50,12 @@ class PolicyMakingPhase(Phase):
           ),
           use_disinfo=ctx.disinformation,
       )
-      leader_agendas[leader.identity.name] = agenda
+      return leader.identity.name, agenda
 
-    ctx.leader_agendas = leader_agendas
+    results = await asyncio.gather(
+        *(one_leader_agenda(l) for _, l in ctx.leader_candidates.items())
+    )
+
+    ctx.leader_agendas = dict(results)
     return ctx
+

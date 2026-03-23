@@ -1,5 +1,6 @@
 """Utilities for fishing persona prompts."""
 
+import asyncio
 import datetime
 import re
 import traceback
@@ -13,7 +14,14 @@ from simulation.utils import logger
 
 
 class ModelWandbWrapper:
-  """Wrapper around pathfinder.Model that logs to wandb."""
+  """Wrapper around pathfinder.Model that logs to wandb.
+
+  Thread-safety note: ``start_chain`` returns a ``(lm, chain, agent_chain)``
+  tuple.  When running concurrent async calls, pass the ``chain`` value
+  explicitly to ``gen``/``find``/``select``/``end_chain`` so that each
+  thread logs against its own chain context.  Callers that don't pass
+  ``chain`` fall back to ``self.chain`` for backward compatibility.
+  """
 
   def __init__(
       self,
@@ -42,11 +50,30 @@ class ModelWandbWrapper:
       phase_name,
       query_name,
   ):
-    self.agent_chain = self.wanbd_logger.get_agent_chain(agent_name, phase_name)
-    self.chain = self.wanbd_logger.start_chain(phase_name + "::" + query_name)
+    agent_chain = self.wanbd_logger.get_agent_chain(agent_name, phase_name)
+    chain = self.wanbd_logger.start_chain(phase_name + "::" + query_name)
+    # Store on self for sync callers.
+    self.agent_chain = agent_chain
+    self.chain = chain
     return self.base_lm
 
-  def end_chain(self, agent_name, lm):
+  def start_chain_async(
+      self,
+      agent_name,
+      phase_name,
+      query_name,
+  ):
+    """Like ``start_chain`` but returns ``(lm, chain)`` for thread-safe use.
+
+    Use this when multiple concurrent calls share the same wrapper so each
+    call can pass its own ``chain`` to ``gen``/``end_chain``.
+    """
+    agent_chain = self.wanbd_logger.get_agent_chain(agent_name, phase_name)
+    chain = self.wanbd_logger.start_chain(phase_name + "::" + query_name)
+    return self.base_lm, chain
+
+  def end_chain(self, agent_name, lm, chain=None):
+    chain = chain if chain is not None else self.chain
     html = lm.html()  # lm._html()
     html = html.replace("<s>", "")
     html = html.replace("</s>", "")
@@ -74,7 +101,7 @@ class ModelWandbWrapper:
     html = correct_rgba(html)
     self.wanbd_logger.end_chain(
         agent_name,
-        self.chain,
+        chain,
         html,
     )
 
@@ -90,7 +117,9 @@ class ModelWandbWrapper:
       save_stop_text=False,
       temperature=None,
       top_p=None,
+      chain=None,
   ):
+    chain = chain if chain is not None else self.chain
     start_time_ms = datetime.datetime.now().timestamp() * 1000
     prompt = previous_lm._current_prompt()
 
@@ -126,7 +155,7 @@ class ModelWandbWrapper:
       # Logging
       end_time_ms = datetime.datetime.now().timestamp() * 1000
       self.wanbd_logger.log_trace_llm(
-          chain=self.chain,
+          chain=chain,
           name=name,
           default_value=default_value,
           start_time_ms=start_time_ms,
@@ -145,6 +174,33 @@ class ModelWandbWrapper:
       self.seed += 1
       return lm
 
+  async def agen(
+      self,
+      previous_lm: Model,
+      name=None,
+      default_value="",
+      *,
+      max_tokens=8000,
+      stop_regex=None,
+      save_stop_text=False,
+      temperature=None,
+      top_p=None,
+      chain=None,
+  ):
+    """Async wrapper — runs ``gen`` in a thread pool."""
+    return await asyncio.to_thread(
+        self.gen,
+        previous_lm,
+        name,
+        default_value,
+        max_tokens=max_tokens,
+        stop_regex=stop_regex,
+        save_stop_text=save_stop_text,
+        temperature=temperature,
+        top_p=top_p,
+        chain=chain,
+    )
+
   def find(
       self,
       previous_lm: Model,
@@ -156,7 +212,9 @@ class ModelWandbWrapper:
       stop_regex=None,
       temperature=None,
       top_p=None,
+      chain=None,
   ):
+    chain = chain if chain is not None else self.chain
     start_time_ms = datetime.datetime.now().timestamp() * 1000
     prompt = previous_lm._current_prompt()
 
@@ -192,7 +250,7 @@ class ModelWandbWrapper:
       # Logging
       end_time_ms = datetime.datetime.now().timestamp() * 1000
       self.wanbd_logger.log_trace_llm(
-          chain=self.chain,
+          chain=chain,
           name=name,
           default_value=default_value,
           start_time_ms=start_time_ms,
@@ -211,6 +269,33 @@ class ModelWandbWrapper:
       self.seed += 1
       return lm
 
+  async def afind(
+      self,
+      previous_lm: Model,
+      name=None,
+      default_value="",
+      *,
+      max_tokens=8000,
+      regex=None,
+      stop_regex=None,
+      temperature=None,
+      top_p=None,
+      chain=None,
+  ):
+    """Async wrapper — runs ``find`` in a thread pool."""
+    return await asyncio.to_thread(
+        self.find,
+        previous_lm,
+        name,
+        default_value,
+        max_tokens=max_tokens,
+        regex=regex,
+        stop_regex=stop_regex,
+        temperature=temperature,
+        top_p=top_p,
+        chain=chain,
+    )
+
   def select(
       self,
       previous_lm,
@@ -218,7 +303,9 @@ class ModelWandbWrapper:
       default_value=None,
       name=None,
       # No sampling by select, since is used more as parsing previous generated text
+      chain=None,
   ):
+    chain = chain if chain is not None else self.chain
     start_time_ms = datetime.datetime.now().timestamp() * 1000
     prompt = previous_lm._current_prompt()
 
@@ -245,7 +332,7 @@ class ModelWandbWrapper:
       # Logging
       end_time_ms = datetime.datetime.now().timestamp() * 1000
       self.wanbd_logger.log_trace_llm(
-          chain=self.chain,
+          chain=chain,
           name=name,
           default_value=default_value,
           start_time_ms=start_time_ms,
@@ -265,3 +352,21 @@ class ModelWandbWrapper:
       )
       self.seed += 1
       return lm
+
+  async def aselect(
+      self,
+      previous_lm,
+      options,
+      default_value=None,
+      name=None,
+      chain=None,
+  ):
+    """Async wrapper — runs ``select`` in a thread pool."""
+    return await asyncio.to_thread(
+        self.select,
+        previous_lm,
+        options,
+        default_value,
+        name,
+        chain=chain,
+    )

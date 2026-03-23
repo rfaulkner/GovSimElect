@@ -1,5 +1,6 @@
 """Act cognition component — handles harvesting and election decisions."""
 
+import asyncio
 import datetime
 
 from simulation.utils import models as sim_models
@@ -56,6 +57,30 @@ class ActComponent(component.Component):
     res = int(res)
     return res, [html]
 
+  async def achoose_how_many_fish_to_catch(
+      self,
+      retrieved_memories: list[str],
+      current_location: str,
+      current_time: datetime.datetime,
+      context: str,
+      interval: list[int],
+      overusage_threshold: int,
+      leader_agenda: str,
+      debug: bool = False,
+  ):
+    """Async version of ``choose_how_many_fish_to_catch``."""
+    return await asyncio.to_thread(
+        self.choose_how_many_fish_to_catch,
+        retrieved_memories,
+        current_location,
+        current_time,
+        context,
+        interval,
+        overusage_threshold,
+        leader_agenda,
+        debug=debug,
+    )
+
   def participate_in_election(
       self,
       retrieved_memories: list[str],
@@ -77,3 +102,24 @@ class ActComponent(component.Component):
         debug=debug,
     )
     return vote, [html]
+
+  async def aparticipate_in_election(
+      self,
+      retrieved_memories: list[str],
+      current_location: str,
+      current_time: str,
+      candidates: list[str],
+      leader_agendas: dict[str, str],
+      debug: bool = False,
+  ) -> tuple[str, list[str]]:
+    """Async version of ``participate_in_election``."""
+    return await asyncio.to_thread(
+        self.participate_in_election,
+        retrieved_memories,
+        current_location,
+        current_time,
+        candidates,
+        leader_agendas,
+        debug=debug,
+    )
+

@@ -65,7 +65,7 @@ class Phase(abc.ABC):
     """Short identifier for this phase, e.g. 'election'."""
 
   @abc.abstractmethod
-  def execute(self, ctx: PhaseContext) -> PhaseContext:
+  async def execute(self, ctx: PhaseContext) -> PhaseContext:
     """Run the phase, mutating and returning the context."""
 
 

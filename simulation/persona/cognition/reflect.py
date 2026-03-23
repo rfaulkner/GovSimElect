@@ -1,5 +1,7 @@
 """Reflect cognition component — handles insights and conversation reflection."""
 
+import asyncio
+
 from simulation.utils import models as sim_models
 from simulation.persona.cognition import component
 from simulation.persona.cognition import reflect_prompts
@@ -35,6 +37,10 @@ class ReflectComponent(component.Component):
         )
         acc.append(insight)
 
+  async def arun(self, focal_points: list[str]):
+    """Async version of ``run`` — runs in a thread pool."""
+    return await asyncio.to_thread(self.run, focal_points)
+
   def reflect_on_convesation(
       self, conversation: list[tuple[str, str]],
   ):
@@ -61,3 +67,12 @@ class ReflectComponent(component.Component):
     self.persona.store.store_thought(
         memo, self.persona.current_time,
     )
+
+  async def areflect_on_convesation(
+      self, conversation: list[tuple[str, str]],
+  ):
+    """Async version of ``reflect_on_convesation``."""
+    return await asyncio.to_thread(
+        self.reflect_on_convesation, conversation,
+    )
+

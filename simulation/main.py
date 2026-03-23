@@ -1,5 +1,6 @@
 """Main file for GovSim Election simulation."""
 
+import asyncio
 import os
 from pathlib import Path
 import shutil
@@ -61,14 +62,14 @@ def main(cfg: DictConfig):
     embedding_model = EmbeddingModel(device="cpu")
 
     if cfg.experiment.scenario == "fishing":
-        run_scenario_fishing(
+        asyncio.run(run_scenario_fishing(
             cfg.experiment,
             logger,
             wrapper,
             wrapper,
             embedding_model,
             experiment_storage,
-        )
+        ))
     else:
         raise ValueError(f"Unknown experiment.scenario: {cfg.experiment.scenario}")
 

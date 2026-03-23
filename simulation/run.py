@@ -72,7 +72,7 @@ def build_phases(phase_names: list[str]) -> list:
 # ── Main entry point ──────────────────────────────────────────────────
 
 
-def run(
+async def run(
     cfg: omegaconf.DictConfig,
     logger: ModelWandbWrapper,
     wrapper: ModelWandbWrapper,
@@ -265,7 +265,7 @@ def run(
 
   while not ctx.terminated:
     for phase in phases:
-      ctx = phase.execute(ctx)
+      ctx = await phase.execute(ctx)
       if ctx.terminated:
         break
 

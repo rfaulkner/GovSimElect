@@ -4,7 +4,13 @@ Drives every agent through the environment's ``lake`` and
 ``pool_after_harvesting`` sub-phases.  After all agents have
 harvested, the leader's harvest report is generated and broadcast
 as public memories.
+
+All harvest LLM decisions run concurrently via ``asyncio.gather``
+since the ``ConcurrentEnv`` collects every agent's desired catch
+before assigning resources proportionally.
 """
+
+import asyncio
 
 from simulation.persona.cognition import leaders as leaders_lib
 from simulation.persona.common import PersonaAction
@@ -24,38 +30,48 @@ class HarvestingPhase(Phase):
   def name(self) -> str:
     return "harvesting"
 
-  def execute(self, ctx: PhaseContext) -> PhaseContext:
+  async def execute(self, ctx: PhaseContext) -> PhaseContext:
     if ctx.debug:
       print(
           f"\nROUND {ctx.round_num}: HARVESTING PHASE"
           "\n========================="
       )
 
-    # ── Lake sub-phase: each agent decides how many fish to catch ──
-    while ctx.env.phase == "lake":
-      agent = ctx.personas[ctx.agent_id]
-      obs = ctx.obs
-      sync_agent_state(agent, ctx)
+    # ── Lake sub-phase: all agents decide concurrently ─────────────
+    # In ConcurrentEnv every agent sees the same pool state — the
+    # resource count only changes once all desired catches are in.
+    # So we gather all LLM decisions in parallel, then step the env
+    # sequentially to feed the collected actions.
+    initial_obs = ctx.obs  # Same observation for every agent.
 
-      agent.current_time = obs.current_time
-      agent.perceive.perceive(obs)
+    # Prepare every agent and retrieve their memories.
+    lake_agent_data = []
+    for agent_id in ctx.env.agents:
+      agent = ctx.personas[agent_id]
+      sync_agent_state(agent, ctx)
+      agent.current_time = initial_obs.current_time
+      agent.perceive.perceive(initial_obs)
 
       retrieved_memory = agent.retrieve.retrieve(
-          [obs.current_location], 10
+          [initial_obs.current_location], 10
       )
       if ctx.debug:
         str_memory = "\n".join(str(m) for m in retrieved_memory)
         print(f"MEMORIES {agent.identity.name}:\n{str_memory}")
 
-      if obs.current_resource_num > 0:
+      lake_agent_data.append((agent_id, agent, retrieved_memory))
+
+    # ── Gather all harvest LLM calls concurrently ──────────────────
+    async def one_harvest(agent_id, agent, retrieved_memory):
+      if initial_obs.current_resource_num > 0:
         num_resource, html_interactions = (
-            agent.act.choose_how_many_fish_to_catch(
+            await agent.act.achoose_how_many_fish_to_catch(
                 retrieved_memory,
-                obs.current_location,
-                obs.current_time,
-                obs.context,
-                range(0, obs.current_resource_num + 1),
-                obs.before_harvesting_sustainability_threshold,
+                initial_obs.current_location,
+                initial_obs.current_time,
+                initial_obs.context,
+                range(0, initial_obs.current_resource_num + 1),
+                initial_obs.before_harvesting_sustainability_threshold,
                 agent.agenda,
                 debug=ctx.debug,
             )
@@ -84,8 +100,15 @@ class HarvestingPhase(Phase):
       if ctx.debug:
         print(f"HARVEST: {agent.identity.name} {num_resource}.")
 
-      agent.memory.save()
+      return agent_id, agent, action
 
+    harvest_results = await asyncio.gather(
+        *(one_harvest(aid, a, rm) for aid, a, rm in lake_agent_data)
+    )
+
+    # ── Step env sequentially with the gathered harvest actions ─────
+    for _, agent, action in harvest_results:
+      agent.memory.save()
       ctx.round_harvest_stats[ctx.round_num][
           agent.identity.name
       ] = action.quantity
@@ -123,7 +146,7 @@ class HarvestingPhase(Phase):
     # ── Generate harvest report and broadcast public memories ──────
     if ctx.leader_candidates:
       assert ctx.winner is not None
-      harvest_report = leaders_lib.make_leader_report(
+      harvest_report = await leaders_lib.amake_leader_report(
           personas=ctx.personas,
           leader_candidates=ctx.leader_candidates,
           current_time=ctx.obs.current_time,
@@ -153,3 +176,4 @@ class HarvestingPhase(Phase):
     ctx.harvest_report = harvest_report
 
     return ctx
+

@@ -22,7 +22,7 @@ class DiscussionPhase(Phase):
   def name(self) -> str:
     return "discussion"
 
-  def execute(self, ctx: PhaseContext) -> PhaseContext:
+  async def execute(self, ctx: PhaseContext) -> PhaseContext:
     if ctx.debug:
       print(
           f"\nROUND {ctx.round_num}: DISCUSSION PHASE"

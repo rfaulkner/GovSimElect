@@ -5,6 +5,7 @@ persona casts a vote; the winner's agenda becomes the round's
 guiding policy.  Election memories are stored for all agents.
 """
 
+import asyncio
 import random
 
 from simulation.environment import concurrent_env
@@ -23,7 +24,7 @@ class ElectionPhase(Phase):
   def name(self) -> str:
     return "election"
 
-  def execute(self, ctx: PhaseContext) -> PhaseContext:
+  async def execute(self, ctx: PhaseContext) -> PhaseContext:
     if not ctx.leader_candidates:
       return ctx
 
@@ -44,45 +45,56 @@ class ElectionPhase(Phase):
     }
 
     if len(ctx.leader_candidates) > 1:
-      for persona_id in ctx.personas:
-        if persona_id not in ctx.leader_candidates:
-          retrieved_memory = leaders_lib.get_memories(
-              ctx.personas[persona_id]
-          )
-          candidates = [
-              leader.identity.name
-              for _, leader in ctx.leader_candidates.items()
-          ]
-          random.shuffle(candidates)
-          vote, _ = ctx.personas[
-              persona_id
-          ].act.participate_in_election(
-              retrieved_memories=retrieved_memory,
-              current_location="",
-              current_time=ctx.obs.current_time.strftime(
-                  "%H-%M-%S"
-              ),
-              candidates=candidates,
-              leader_agendas=leader_agendas,
-              debug=ctx.debug,
-          )
-          candidate_id = (
-              vote.name if hasattr(vote, "name") else str(vote)
-          )
-          candidate_str = ctx.agent_id_to_name.get(
-              candidate_id, candidate_id
-          )
-          votes[candidate_str] = votes.get(candidate_str, 0) + 1
-          ctx.personas[persona_id].store.store_event(
-              PersonaEvent(
-                  f"Round {ctx.round_num} vote: {vote}",
-                  created=ctx.obs.current_time,
-                  expiration=concurrent_env.get_expiration_next_month(
-                      ctx.obs.current_time
-                  ),
-                  always_include=True,
-              )
-          )
+      # ── Gather all votes concurrently ──────────────────────────
+      async def one_vote(persona_id):
+        retrieved_memory = leaders_lib.get_memories(
+            ctx.personas[persona_id]
+        )
+        candidates = [
+            leader.identity.name
+            for _, leader in ctx.leader_candidates.items()
+        ]
+        random.shuffle(candidates)
+        vote, _ = await ctx.personas[
+            persona_id
+        ].act.aparticipate_in_election(
+            retrieved_memories=retrieved_memory,
+            current_location="",
+            current_time=ctx.obs.current_time.strftime(
+                "%H-%M-%S"
+            ),
+            candidates=candidates,
+            leader_agendas=leader_agendas,
+            debug=ctx.debug,
+        )
+        return persona_id, vote
+
+      voter_ids = [
+          pid for pid in ctx.personas
+          if pid not in ctx.leader_candidates
+      ]
+      results = await asyncio.gather(
+          *(one_vote(pid) for pid in voter_ids)
+      )
+
+      for persona_id, vote in results:
+        candidate_id = (
+            vote.name if hasattr(vote, "name") else str(vote)
+        )
+        candidate_str = ctx.agent_id_to_name.get(
+            candidate_id, candidate_id
+        )
+        votes[candidate_str] = votes.get(candidate_str, 0) + 1
+        ctx.personas[persona_id].store.store_event(
+            PersonaEvent(
+                f"Round {ctx.round_num} vote: {vote}",
+                created=ctx.obs.current_time,
+                expiration=concurrent_env.get_expiration_next_month(
+                    ctx.obs.current_time
+                ),
+                always_include=True,
+            )
+        )
 
       votes_cp = dict(votes)
       if "none" in votes_cp:
@@ -145,3 +157,4 @@ class ElectionPhase(Phase):
     ctx.votes = votes
     ctx.agenda = leader_agendas[winner]
     return ctx
+
