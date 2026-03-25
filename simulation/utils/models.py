@@ -12,7 +12,6 @@ from pathfinder import Model
 from simulation.utils import logger
 
 
-
 class ModelWandbWrapper:
   """Wrapper around pathfinder.Model that logs to wandb.
 
@@ -70,7 +69,7 @@ class ModelWandbWrapper:
     """
     agent_chain = self.wanbd_logger.get_agent_chain(agent_name, phase_name)
     chain = self.wanbd_logger.start_chain(phase_name + "::" + query_name)
-    return self.base_lm, chain
+    return self.base_lm.copy(), chain
 
   def end_chain(self, agent_name, lm, chain=None):
     chain = chain if chain is not None else self.chain
@@ -370,3 +369,4 @@ class ModelWandbWrapper:
         name,
         chain=chain,
     )
+

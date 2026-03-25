@@ -14,7 +14,7 @@ def prompt_importance_chat(
     chat: associative_memory.Chat,
 ):
   """Rate the significance of a chat conversation."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       persona.name, "cognition_retrieve", "prompt_importance_chat"
   )
 
@@ -36,10 +36,11 @@ def prompt_importance_chat(
         options=[str(i) for i in range(1, 11)],
         default_value="5",
         name="significance",
+        chain=chain,
     )
     significance = int(lm["significance"])
 
-  model.end_chain(persona.name, lm)
+  model.end_chain(persona.name, lm, chain=chain)
   return significance
 
 
@@ -49,7 +50,7 @@ def prompt_importance_event(
     event: associative_memory.Event,
 ):
   """Rate the significance of an event."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       persona.name, "cognition_perceive", "relevancy_event"
   )
 
@@ -72,10 +73,11 @@ def prompt_importance_event(
         options=[str(i) for i in range(1, 11)],
         name="significance",
         default_value="5",
+        chain=chain,
     )
     importance_score = int(lm["significance"])
 
-  model.end_chain(persona.name, lm)
+  model.end_chain(persona.name, lm, chain=chain)
   return importance_score
 
 
@@ -85,7 +87,7 @@ def prompt_importance_thought(
     thought: associative_memory.Thought,
 ):
   """Rate the significance of a thought."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       persona.name,
       "cognition_retrieve",
       "prompt_importance_thought",
@@ -109,10 +111,11 @@ def prompt_importance_thought(
         options=[str(i) for i in range(1, 11)],
         default_value="5",
         name="significance_rating",
+        chain=chain,
     )
     significance_rating = int(lm["significance_rating"])
 
-  model.end_chain(persona.name, lm)
+  model.end_chain(persona.name, lm, chain=chain)
   return significance_rating
 
 
@@ -122,7 +125,7 @@ def prompt_importance_action(
     action: associative_memory.Action,
 ):
   """Rate the significance of an action."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       persona.name,
       "cognition_retrieve",
       "prompt_importance_action",
@@ -146,10 +149,11 @@ def prompt_importance_action(
         options=[str(i) for i in range(1, 11)],
         default_value="5",
         name="significance_rating",
+        chain=chain,
     )
     significance_rating = int(lm["significance_rating"])
 
-  model.end_chain(persona.name, lm)
+  model.end_chain(persona.name, lm, chain=chain)
   return significance_rating
 
 
@@ -157,7 +161,7 @@ def prompt_text_to_triple(
     model: sim_models.ModelWandbWrapper, text: str,
 ):
   """Split text into subject, predicate, and object."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       "framework",
       "cognition_retrieve",
       "prompt_text_to_triple",
@@ -171,11 +175,12 @@ def prompt_text_to_triple(
 
   with assistant():
     lm += "Subject: "
-    lm = model.gen(lm, name="subject", stop_regex=r"\n")
+    lm = model.gen(lm, name="subject", stop_regex=r"\n", chain=chain)
     lm += "\nPredicate: "
-    lm = model.gen(lm, name="predicate", stop_regex=r"\n")
+    lm = model.gen(lm, name="predicate", stop_regex=r"\n", chain=chain)
     lm += "\nObject: "
-    lm = model.gen(lm, name="object", stop_regex=r"\n")
+    lm = model.gen(lm, name="object", stop_regex=r"\n", chain=chain)
 
-  model.end_chain("framework", lm)
+  model.end_chain("framework", lm, chain=chain)
   return lm["subject"], lm["predicate"], lm["object"]
+

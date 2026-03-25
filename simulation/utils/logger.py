@@ -3,6 +3,7 @@
 import datetime
 import logging
 import os
+import threading
 
 import wandb
 # import weasyprint
@@ -36,57 +37,63 @@ class WandbLogger:
     self.start_time_ms = datetime.datetime.now().timestamp() * 1000
 
     self.global_step = 0
-    self.is_finish_pending = False
+    self._pending_chains = 0
 
+    self._lock = threading.Lock()
     self.html_logs = {}
 
   def get_agent_chain(self, agent_name, phase_name):
     start_time_ms = datetime.datetime.now().timestamp() * 1000
-    if (
-        self.current_agent_name != agent_name
-        or self.current_phase_name != phase_name
-    ):
-      if self.current_agent_span is not None:
-        TFS = self.token_usage_agent / (
-            (
-                self.current_agent_span._span.end_time_ms
-                - self.current_agent_span._span.start_time_ms
-            )
-            / 1000
+    with self._lock:
+      if (
+          self.current_agent_name != agent_name
+          or self.current_phase_name != phase_name
+      ):
+        if self.current_agent_span is not None:
+          # end_time_ms may still be None if end_chain was not called yet
+          # (e.g. concurrent async tasks). Default to now.
+          if self.current_agent_span._span.end_time_ms is None:
+            self.current_agent_span._span.end_time_ms = start_time_ms
+          TFS = self.token_usage_agent / (
+              (
+                  self.current_agent_span._span.end_time_ms
+                  - self.current_agent_span._span.start_time_ms
+              )
+              / 1000
+          )
+          TFS_cumulative = self.token_usage / (
+              (self.current_agent_span._span.end_time_ms - self.start_time_ms)
+              / 1000
+          )
+          t = trace_tree.WBTraceTree(
+              self.current_agent_span._span, self.current_agent_span._model_dict
+          )
+          wandb.log(
+              {
+                  "experiment/trace": t,
+                  "experiment/TFS": TFS,
+                  "experiment/TFS_cumulative": TFS_cumulative,
+                  "experiment/token_in_cumulative": self.token_usage_in,
+                  "experiment/token_out_cumulative": self.token_usage_out,
+              },
+              step=self.global_step,
+              commit=True,
+          )
+          self.global_step += 1
+        self.current_agent_name = agent_name
+        self.current_phase_name = phase_name
+        self.token_usage_agent = 0
+        self.current_agent_span = trace_tree.Trace(
+            name=agent_name,
+            kind=trace_tree.SpanKind.AGENT,
+            start_time_ms=start_time_ms,
+            inputs={"phase": phase_name},
         )
-        TFS_cumulative = self.token_usage / (
-            (self.current_agent_span._span.end_time_ms - self.start_time_ms)
-            / 1000
-        )
-        t = trace_tree.WBTraceTree(
-            self.current_agent_span._span, self.current_agent_span._model_dict
-        )
-        wandb.log(
-            {
-                "experiment/trace": t,
-                "experiment/TFS": TFS,
-                "experiment/TFS_cumulative": TFS_cumulative,
-                "experiment/token_in_cumulative": self.token_usage_in,
-                "experiment/token_out_cumulative": self.token_usage_out,
-            },
-            step=self.global_step,
-            commit=True,
-        )
-        self.global_step += 1
-      self.current_agent_name = agent_name
-      self.current_phase_name = phase_name
-      self.token_usage_agent = 0
-      self.current_agent_span = trace_tree.Trace(
-          name=agent_name,
-          kind=trace_tree.SpanKind.AGENT,
-          start_time_ms=start_time_ms,
-          inputs={"phase": phase_name},
-      )
-    return self.current_agent_span
+      return self.current_agent_span
 
   def start_chain(self, chain_name):
-    assert self.is_finish_pending == False
-    self.is_finish_pending = True
+    with self._lock:
+      self._pending_chains += 1
     start_time_ms = datetime.datetime.now().timestamp() * 1000
     chain = trace_tree.Trace(
         name=chain_name,
@@ -148,10 +155,8 @@ class WandbLogger:
     chain.add_child(t)
 
   def end_chain(self, agent_name, chain_span, html_render):
-    assert self.is_finish_pending == True
-    self.is_finish_pending = False
-    if agent_name != self.current_agent_name:
-      raise Exception("Agent name does not match")
+    with self._lock:
+      self._pending_chains -= 1
     chain_agent = self.current_agent_span
     end_time_ms = datetime.datetime.now().timestamp() * 1000
     chain_span._span.end_time_ms = end_time_ms
@@ -191,6 +196,11 @@ class WandbLogger:
 
   def log_game(self, kwargs, last_log=False):
     if last_log and self.current_agent_span is not None:
+      # end_time_ms may still be None if end_chain was not called yet.
+      if self.current_agent_span._span.end_time_ms is None:
+        self.current_agent_span._span.end_time_ms = (
+            datetime.datetime.now().timestamp() * 1000
+        )
       TFS = self.token_usage_agent / (
           (
               self.current_agent_span._span.end_time_ms
@@ -217,3 +227,4 @@ class WandbLogger:
           commit=False,
       )
     wandb.log(kwargs, step=self.global_step, commit=last_log)
+

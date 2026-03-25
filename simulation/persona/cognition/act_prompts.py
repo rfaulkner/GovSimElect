@@ -27,7 +27,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
 ):
   """Prompt the agent to choose how many fish to catch."""
   del consider_identity_persona
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       agent.identity.name,
       "fishing_cognition_act",
       "choose_act_options",
@@ -77,6 +77,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
         "reasoning",
         stop_regex=r"Answer:|So, the answer is:|\*\*Answer\*\*:",
         save_stop_text=True,
+        chain=chain,
     )
     lm = model.find(
         lm,
@@ -84,6 +85,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
         default_value="0",
         stop_regex=r"tons",
         name="option",
+        chain=chain,
     )
     option = int(lm["option"])
   response_log_path = os.path.join(
@@ -107,7 +109,7 @@ def prompt_action_choose_amount_of_fish_to_catch(
         f"CATCH: {option}"
     )
 
-  model.end_chain(agent.identity.name, lm)
+  model.end_chain(agent.identity.name, lm, chain=chain)
 
   return option, lm.html()
 
@@ -124,7 +126,7 @@ def prompt_election_vote(
 ) -> tuple[str, str]:
   """Prompt the agent to vote for a candidate."""
   del current_location, current_time
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       agent.identity.name,
       "fishing_election",
       "vote_decision",
@@ -184,12 +186,14 @@ def prompt_election_vote(
         "reasoning",
         stop_regex=r"Vote:|\*\*Vote\*\*:",
         save_stop_text=True,
+        chain=chain,
     )
     lm = model.find(
         lm,
         regex=fr"{'|'.join(candidates)}",
         default_value="none",
         name="option",
+        chain=chain,
     )
     reasoning = lm["reasoning"]
     vote = lm["option"].strip()
@@ -215,5 +219,6 @@ def prompt_election_vote(
         f"VOTE: {lm['option']}"
     )
 
-  model.end_chain(agent.identity.name, lm)
+  model.end_chain(agent.identity.name, lm, chain=chain)
   return vote, lm.html()
+

@@ -25,7 +25,7 @@ def prompt_converse_utterance_in_group(
     debug: bool = False,
 ) -> tuple[str, bool, str]:
   """Prompt to get utterance from conversation."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       init_persona.identity.name,
       "cognition_converse",
       "converse_utterance",
@@ -97,6 +97,7 @@ def prompt_converse_utterance_in_group(
         name="utterance",
         default_value="",
         stop_regex=r"Conversation conclusion by me:",
+        chain=chain,
     )
     utterance = lm["utterance"].strip()
     if (
@@ -111,6 +112,7 @@ def prompt_converse_utterance_in_group(
         name="utterance_ended",
         options=["yes", "no", "No", "Yes"],
         default_value="yes",
+        chain=chain,
     )
     utterance_ended = (
         lm["utterance_ended"].lower() == "yes"
@@ -129,6 +131,7 @@ def prompt_converse_utterance_in_group(
           name="next_speaker",
           options=options,
           default_value=options[0],
+          chain=chain,
       )
       assert lm["next_speaker"] in options
       next_speaker = lm["next_speaker"]
@@ -155,7 +158,7 @@ def prompt_converse_utterance_in_group(
           f"NEXT SPEAKER: {next_speaker}\n"
       )
 
-  model.end_chain(init_persona.identity.name, lm)
+  model.end_chain(init_persona.identity.name, lm, chain=chain)
   return utterance, utterance_ended, next_speaker, lm.html()
 
 
@@ -164,7 +167,7 @@ def prompt_summarize_conversation_in_one_sentence(
     conversation: list[tuple[str, str]],
 ) -> tuple[str, str]:
   """Summarize a conversation in a single sentence."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       "framework",
       "cognition_converse",
       "prompt_summarize_conversation_in_one_sentence",
@@ -183,8 +186,10 @@ def prompt_summarize_conversation_in_one_sentence(
         name="summary",
         default_value="",
         stop_regex=r"\.",
+        chain=chain,
     )
     summary = lm["summary"] + "."
 
-  model.end_chain("framework", lm)
+  model.end_chain("framework", lm, chain=chain)
   return summary, lm.html()
+

@@ -13,7 +13,7 @@ def prompt_insight_and_evidence(
     statements: list[str],
 ):
   """Generate insights from a set of statements."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       persona.name,
       "cognition_retrieve",
       "prompt_insight_and_evidence",
@@ -35,6 +35,7 @@ def prompt_insight_and_evidence(
           name=f"evidence_{i}",
           stop_regex=rf"{i+2}\.|\\(",
           save_stop_text=True,
+          chain=chain,
       )
       if lm[f"evidence_{i}"].endswith(f"{i+2}."):
         evidence = lm[f"evidence_{i}"][: -len(f"{i+2}.")]
@@ -49,6 +50,7 @@ def prompt_insight_and_evidence(
             name=f"evidence_{i}_justification",
             stop_regex=rf"{i+2}\.",
             save_stop_text=True,
+            chain=chain,
         )
         if lm[f"evidence_{i}_justification"].endswith(f"{i+2}."):
           acc.append(evidence.strip())
@@ -56,7 +58,7 @@ def prompt_insight_and_evidence(
         else:
           acc.append(evidence.strip())
           break
-    model.end_chain(persona.name, lm)
+    model.end_chain(persona.name, lm, chain=chain)
 
   return acc
 
@@ -67,7 +69,7 @@ def prompt_planning_thought_on_conversation(
     conversation: list[tuple[str, str]],
 ) -> str:
   """Generate a planning thought from a conversation."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       persona.name,
       "cognition_retrieve",
       "prompt_planning_thought_on_conversation",
@@ -83,10 +85,10 @@ def prompt_planning_thought_on_conversation(
         f" perspective, in a full sentence."
     )
   with assistant():
-    lm = model.gen(lm, name="planning_thought", stop_regex=r"\.")
+    lm = model.gen(lm, name="planning_thought", stop_regex=r"\.", chain=chain)
     res = lm["planning_thought"]
 
-  model.end_chain(persona.name, lm)
+  model.end_chain(persona.name, lm, chain=chain)
   return res
 
 
@@ -96,7 +98,7 @@ def prompt_memorize_from_conversation(
     conversation: list[tuple[str, str]],
 ) -> str:
   """Memorize interesting points from a conversation."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       persona.name,
       "cognition_retrieve",
       "prompt_memorize_from_conversation",
@@ -112,10 +114,10 @@ def prompt_memorize_from_conversation(
         f" perspective, in a full sentence."
     )
   with assistant():
-    lm = model.gen(lm, name="memorize", stop_regex=r"\.")
+    lm = model.gen(lm, name="memorize", stop_regex=r"\.", chain=chain)
     res = lm["memorize"]
 
-  model.end_chain(persona.name, lm)
+  model.end_chain(persona.name, lm, chain=chain)
   return res
 
 
@@ -124,7 +126,7 @@ def prompt_find_harvesting_limit_from_conversation(
     conversation: list[tuple[str, str]],
 ) -> tuple[int, str]:
   """Find the harvesting limit agreed upon in a conversation."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       "framework",
       "cognition_refelct",
       "prompt_find_harvesting_limit_from_conversation",
@@ -156,6 +158,7 @@ def prompt_find_harvesting_limit_from_conversation(
         lm,
         "reasoning",
         stop_regex=f"Answer:",
+        chain=chain,
     )
     lm += f"Answer: "
     lm = model.find(
@@ -163,14 +166,16 @@ def prompt_find_harvesting_limit_from_conversation(
         regex=r"\d+",
         default_value="-1",
         name="num_resource",
+        chain=chain,
     )
 
     resource_limit_agreed = int(lm["num_resource"]) != -1
 
     if resource_limit_agreed:
       res = int(lm["num_resource"])
-      model.end_chain("framework", lm)
+      model.end_chain("framework", lm, chain=chain)
       return res, lm.html()
     else:
-      model.end_chain("framework", lm)
+      model.end_chain("framework", lm, chain=chain)
       return None, lm.html()
+

@@ -133,7 +133,7 @@ def prompt_leader_agenda(
     debug: bool = False,
 ) -> tuple[str, str]:
   """Prompt to get leader agenda."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       init_persona.agent_id,
       "leader_agenda",
       "get_agenda",
@@ -194,6 +194,7 @@ def prompt_leader_agenda(
         "agenda",
         stop_regex=r"END",
         save_stop_text=False,
+        chain=chain,
     )
     if debug:
       print(f"\nRESPONSE:\n{lm['agenda']}")
@@ -201,7 +202,7 @@ def prompt_leader_agenda(
     if agenda and agenda[0] == '"' and agenda[-1] == '"':
       agenda = agenda[1:-1]
 
-  model.end_chain(init_persona.agent_id, lm)
+  model.end_chain(init_persona.agent_id, lm, chain=chain)
   return agenda, lm.html()
 
 
@@ -216,7 +217,7 @@ def prompt_harvest_report(
     debug: bool = False,
 ) -> str:
   """Prompt to get harvest report."""
-  lm = model.start_chain(
+  lm, chain = model.start_chain_async(
       init_persona.agent_id,
       "leader_report",
       "get_report",
@@ -265,13 +266,14 @@ def prompt_harvest_report(
         "report",
         stop_regex=r"END",
         save_stop_text=False,
+        chain=chain,
     )
     if debug:
       print(f"\nRESPONSE:\n{lm['agenda']}\n")
     report = lm["report"].strip()
     if report and report[0] == '"' and report[-1] == '"':
       report = report[1:-1]
-  model.end_chain(init_persona.agent_id, lm)
+  model.end_chain(init_persona.agent_id, lm, chain=chain)
   return report
 
 
@@ -548,4 +550,5 @@ async def amake_leader_report(
       regen_factor=regen_factor,
       debug=debug,
   )
+
 
