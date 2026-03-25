@@ -1,6 +1,0 @@
-defaults:
-  - pollution_baseline_concurrent
-
-env:
-  name: pollution_baseline_concurrent_universalization
-  inject_universalization: true
