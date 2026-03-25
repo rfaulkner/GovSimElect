@@ -1,37 +1,36 @@
-import typing
+"""Plan cognition component — handles future planning."""
 
-from pathfinder import assistant, system, user
-from simulation.utils import ModelWandbWrapper
-
-from .component import Component
+from simulation.utils import models as sim_models
+from simulation.persona.cognition import component
 
 
-class PlanComponent(Component):
-    def __init__(
-        self,
-        model: ModelWandbWrapper,
-        model_framework: ModelWandbWrapper,
-    ):
-        super().__init__(model, model_framework)
+class PlanComponent(component.Component):
+  """Handles planning cognition."""
 
-    def chat_react(self):
-        # There are 2 persona, the first is initiator, the second is responder.
-        # Converse.generate_convo
-        # Converse.generate_convo_summary
-        pass
+  def __init__(
+      self,
+      model: sim_models.ModelWandbWrapper,
+      model_framework: sim_models.ModelWandbWrapper,
+  ):
+    """Initialize the plan component."""
+    super().__init__(model, model_framework)
 
-    def revise_self_indentity(self):
-        # NOTE: future. Update persona's self identity, given new experience.
-        pass
+  def chat_react(self):
+    """React to a chat event."""
+    pass
 
-    def should_react(self):
-        # NOTE: future
-        pass
+  def revise_self_indentity(self):
+    """Revise persona self-identity given new experience."""
+    pass
 
-    def wait_react(self):
-        # NOTE: future
-        pass
+  def should_react(self):
+    """Determine if persona should react."""
+    pass
 
-    def create_react(self):
-        # NOTE: future
-        pass
+  def wait_react(self):
+    """Wait before reacting."""
+    pass
+
+  def create_react(self):
+    """Create a reaction."""
+    pass

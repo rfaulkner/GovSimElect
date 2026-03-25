@@ -25,7 +25,7 @@ from typing import Any
 import networkx as nx
 import numpy as np
 
-from simulation.scenarios.fishing.agents.persona_v3.cognition import leaders as leaders_lib
+from simulation.persona.cognition import leaders as leaders_lib
 
 # import pandas as pd
 
