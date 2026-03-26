@@ -2,14 +2,11 @@
 
 import datetime
 
-import numpy as np
-
-from simulation.utils import models as sim_models
 from simulation.persona import common
-from simulation.persona import embedding_model as embed_mod
-from simulation.persona.memory import associative_memory
 from simulation.persona.cognition import component
 from simulation.persona.cognition import store_prompts
+from simulation.persona.memory import associative_memory
+from simulation.utils import models as sim_models
 
 
 class StoreComponent(component.Component):
@@ -20,13 +17,11 @@ class StoreComponent(component.Component):
       model: sim_models.ModelWandbWrapper,
       model_framework: sim_models.ModelWandbWrapper,
       memory: associative_memory.AssociativeMemory,
-      emb_model: embed_mod.EmbeddingModel,
       cfg,
   ) -> None:
     """Initialize the store component."""
     super().__init__(model, model_framework, cfg)
     self.associative_memory = memory
-    self.embedding_model = emb_model
 
   def _compute_importance(
       self, node: associative_memory.Node,
@@ -66,12 +61,7 @@ class StoreComponent(component.Component):
       node.always_include = True
     else:
       self._compute_importance(node)
-    embedding = self.embedding_model.embed(
-        event.description,
-    )
-    self.associative_memory.set_node_embedding(
-        node.id, embedding,
-    )
+    self.associative_memory.append_to_memory_md(node)
 
   def store_chat(
       self,
@@ -95,10 +85,7 @@ class StoreComponent(component.Component):
         expiration,
     )
     self._compute_importance(node)
-    embedding = self.embedding_model.embed(summary)
-    self.associative_memory.set_node_embedding(
-        node.id, embedding,
-    )
+    self.associative_memory.append_to_memory_md(node)
 
   def store_action(
       self,
@@ -117,10 +104,7 @@ class StoreComponent(component.Component):
         s, p, o, description, created, expiration,
     )
     self._compute_importance(node)
-    embedding = self.embedding_model.embed(description)
-    self.associative_memory.set_node_embedding(
-        node.id, embedding,
-    )
+    self.associative_memory.append_to_memory_md(node)
 
   def store_thought(
       self,
@@ -144,7 +128,5 @@ class StoreComponent(component.Component):
       node.always_include = True
     else:
       self._compute_importance(node)
-    embedding = self.embedding_model.embed(description)
-    self.associative_memory.set_node_embedding(
-        node.id, embedding,
-    )
+    self.associative_memory.append_to_memory_md(node)
+

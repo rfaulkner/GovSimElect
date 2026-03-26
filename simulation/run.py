@@ -15,22 +15,18 @@ import os
 import omegaconf
 from simulation.environment.concurrent_env import ConcurrentEnv
 from simulation.environment.perturbation_env import PerturbationEnv
-
 from simulation.persona.cognition import leaders as leaders_lib
 from simulation.persona.cognition import utils as cognition_utils
 from simulation.persona.common import PersonaEnvironment
 from simulation.persona.common import PersonaIdentity
-from simulation.persona.embedding_model import EmbeddingModel
 from simulation.persona.persona import PersonaAgent
 from simulation.persona.persona import SVOPersonaType
-
 from simulation.phases.base import PhaseContext
 from simulation.phases.discussion import DiscussionPhase
 from simulation.phases.election import ElectionPhase
 from simulation.phases.harvesting import HarvestingPhase
 from simulation.phases.policy_making import PolicyMakingPhase
 from simulation.phases.reflection import ReflectionPhase
-
 from simulation.utils.models import ModelWandbWrapper
 
 
@@ -77,7 +73,6 @@ async def run(
     logger: ModelWandbWrapper,
     wrapper: ModelWandbWrapper,
     framework_wrapper: ModelWandbWrapper,
-    embedding_model: EmbeddingModel,
     experiment_storage: str,
 ):
   """Run the simulation."""
@@ -128,7 +123,6 @@ async def run(
         cfg.agent,
         wrapper,
         framework_wrapper,
-        embedding_model,
         os.path.join(experiment_storage, f"persona_{i}"),
         svo_angle=svo_angle,
         svo_type=svo_type,
@@ -148,7 +142,6 @@ async def run(
         cfg.agent,
         wrapper,
         framework_wrapper,
-        embedding_model,
         os.path.join(experiment_storage, f"persona_{i}"),
         experiment_storage=experiment_storage,
     )
@@ -343,3 +336,4 @@ async def run(
   ctx.env.save_log()
   for persona in ctx.personas:
     ctx.personas[persona].memory.save()
+

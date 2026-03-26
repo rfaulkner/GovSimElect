@@ -1,6 +1,6 @@
 name: fishing_${code_version}/${group_name}
 scenario: fishing
-debug: true
+debug: false
 seed: 0
 
 phases:

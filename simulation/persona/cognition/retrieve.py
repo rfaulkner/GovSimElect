@@ -2,39 +2,27 @@
 
 import datetime
 
-import numpy as np
-
-from simulation.utils import models as sim_models
-from simulation.persona import embedding_model as embed_mod
-from simulation.persona.memory import associative_memory
 from simulation.persona.cognition import component
+from simulation.persona.memory import associative_memory
+from simulation.utils import models as sim_models
 
 
 class RetrieveComponent(component.Component):
-  """
-  Retrieve works as follows.
-  First we need to have 3 scores for each item in the memory.
-  - Recency: based on the time since the item was added to the
-    memory (the more recent the more relevant) Weight: 0.5
-  - Importance: based on the importance of the item (the more
-    important the more relevant), via LLM Weight: 3
-  - Relevance: based on the relevance of the item to the current
-    context (the more relevant the more relevant), via cosine
-    similarity of embedding Weight: 2
+  """Retrieve works as follows.
+
+  Each memory entry is scored on two dimensions:
+  - Recency: based on position in the memory list (more recent = higher).
+    Weight: 1
+  - Importance: LLM-assigned score normalized to [0, 1].
+    Weight: 3
 
   Recency:
-  assign a score base on 0.99**i where i is the index of the
+  assign a score based on 0.99**i where i is the index of the
   item in the memory (the more recent the more relevant)
 
   Importance:
   use LLM to generate a score for each item in the memory. It
   is computed when saved in memory
-
-
-  Relevance:
-  use cosine similarity of embedding to generate a score for
-  each item in the memory
-  TODO: choose embedding model
   """
 
   def __init__(
@@ -42,173 +30,114 @@ class RetrieveComponent(component.Component):
       model: sim_models.ModelWandbWrapper,
       model_framework: sim_models.ModelWandbWrapper,
       memory: associative_memory.AssociativeMemory,
-      emb_model: embed_mod.EmbeddingModel,
   ):
     """Initialize the retrieve component."""
     super().__init__(model, model_framework)
     self.associative_memory = memory
 
-    self.embedding_model = emb_model
-
     self.weights = {
-        "recency": 0.5,
+        "recency": 1,
         "importance": 3,
-        "relevance": 2,
     }
     self.recency_decay_param = 0.99
 
   def _recency_retrieval(
-      self, nodes: list[associative_memory.Node],
-  ) -> dict[str, float]:
-    """
-    Calculate the recency retrieval scores for a list of nodes.
+      self,
+      entries: list[tuple[datetime.datetime, str, float, bool]],
+  ) -> list[float]:
+    """Calculate recency scores for a list of memory entries.
 
     Args:
-      nodes: The list of nodes to calculate recency scores for.
+      entries: List of (created, description, importance, always_include).
 
     Returns:
-      A dictionary mapping node IDs to recency scores.
+      A list of recency scores (same order as entries).
     """
-    result = dict()
-    for i, node in enumerate(nodes):
-      result[node.id] = self.recency_decay_param**i
-    return result
+    return [self.recency_decay_param**i for i in range(len(entries))]
 
   def _importance_retrieval(
-      self, nodes: list[associative_memory.Node],
-  ) -> dict[str, float]:
-    """
-    Retrieve the importance scores for a list of nodes.
+      self,
+      entries: list[tuple[datetime.datetime, str, float, bool]],
+  ) -> list[float]:
+    """Extract and normalize importance scores for a list of entries.
 
     Args:
-      nodes: The list of nodes to retrieve importance for.
+      entries: List of (created, description, importance, always_include).
 
     Returns:
-      A dictionary mapping node IDs to normalized scores.
+      A list of normalized importance scores (same order).
     """
-    result = dict()
-    for node in nodes:
-      result[node.id] = node.importance_score
-
     min_score = 1
     max_score = 10
-    for node_id in result.keys():
-      result[node_id] = (
-          (result[node_id] - min_score)
-          / (max_score - min_score)
-      )
-
+    result = []
+    for _, _, importance, _ in entries:
+      normalized = (importance - min_score) / (max_score - min_score)
+      result.append(normalized)
     return result
 
-  def _relevance_retrieval(
+  def _retrieve_entries(
       self,
-      nodes: list[associative_memory.Node],
-      focal_point: str,
-  ) -> dict[str, float]:
-    """
-    Retrieve relevance scores based on cosine similarity.
+      focal_points: list[str],
+      top_k: int,
+  ) -> list[tuple[datetime.datetime, str, float, bool]]:
+    """Retrieve top-k memory entries from MEMORY.md.
 
     Args:
-      nodes: The list of nodes to retrieve relevance for.
-      focal_point: The focal point used for comparison.
+      focal_points: List of focal points (unused in markup mode, kept for API
+        compatibility).
+      top_k: Number of top entries to retrieve.
 
     Returns:
-      A dictionary mapping node IDs to relevance scores.
+      List of top-k (created, description, importance, always_include)
+      tuples.
     """
-
-    result = dict()
-    focal_point_embedding = (
-        self.embedding_model.embed_retrieve(focal_point)
-    )
-
-    def cosine_similarity(a, b):
-      """Compute cosine similarity between two vectors."""
-      return np.dot(a, b) / (
-          np.linalg.norm(a) * np.linalg.norm(b)
-      )
-
-    for node in nodes:
-      node_embedding = (
-          self.associative_memory.get_node_embedding(
-              node.id,
-          )
-      )
-      result[node.id] = cosine_similarity(
-          focal_point_embedding, node_embedding,
-      )
-
-    return result
-
-  def _retrieve_dict(
-      self, focal_points: list[str], top_k: int,
-  ) -> dict[str, list[associative_memory.Node]]:
-    """
-    Retrieve nodes from associative memory.
-
-    Args:
-      focal_points: List of focal points to retrieve for.
-      top_k: Number of top nodes to retrieve per point.
-
-    Returns:
-      Dictionary mapping each focal point to top-k nodes.
-    """
-    nodes = self.associative_memory.get_nodes_for_retrieval(
+    entries = self.associative_memory.read_memory_md(
         self.persona.current_time,
     )
 
-    recency_scores = self._recency_retrieval(nodes)
-    importance_scores = self._importance_retrieval(nodes)
+    if not entries:
+      return []
 
-    acc_nodes = dict()
+    recency_scores = self._recency_retrieval(entries)
+    importance_scores = self._importance_retrieval(entries)
 
-    for focal_point in focal_points:
-      relevance_scores = self._relevance_retrieval(
-          nodes, focal_point,
+    combined_scores = []
+    for i, entry in enumerate(entries):
+      score = (
+          recency_scores[i] * self.weights["recency"]
+          + importance_scores[i] * self.weights["importance"]
       )
+      combined_scores.append(score)
 
-      combined_scores = dict()
+    # always_include entries get boosted above everything else.
+    max_score = max(combined_scores) if combined_scores else 10
+    for i, entry in enumerate(entries):
+      _, _, _, always_include = entry
+      if always_include:
+        combined_scores[i] = max_score + 1
 
-      for node_id in recency_scores.keys():
-        combined_scores[node_id] = (
-            recency_scores[node_id]
-            * self.weights["recency"]
-            + importance_scores[node_id]
-            * self.weights["importance"]
-            + relevance_scores[node_id]
-            * self.weights["relevance"]
-        )
+    # Sort by combined score (descending) and take top_k.
+    scored_entries = list(zip(combined_scores, entries))
+    scored_entries.sort(key=lambda x: x[0], reverse=True)
 
-      max_value = (
-          max(combined_scores.values())
-          if combined_scores
-          else 10
-      )
-      for node in nodes:
-        if node.always_include:
-          combined_scores[node.id] = max_value + 1
-
-      sorted_nodes = sorted(
-          nodes,
-          key=lambda node: combined_scores[node.id],
-          reverse=True,
-      )
-
-      top_k_nodes = sorted_nodes[:top_k]
-      acc_nodes[focal_point] = top_k_nodes
-    return acc_nodes
+    top_k_entries = [entry for _, entry in scored_entries[:top_k]]
+    return top_k_entries
 
   def retrieve(
       self, focal_points: list[str], top_k: int,
   ) -> list[tuple[datetime.datetime, str]]:
     """Retrieve top-k memories for the given focal points."""
-    res = self._retrieve_dict(focal_points, top_k)
-    res = res.values()
-    res = [node for nodes in res for node in nodes]
+    entries = self._retrieve_entries(focal_points, top_k)
 
-    res = set(res)
-    res = list(res)
-    res_sort = [
-        (node.created, node.description) for node in res
-    ]
-    res_sort = sorted(res_sort, key=lambda x: x[0])
-    return res_sort
+    # Deduplicate by description.
+    seen = set()
+    unique = []
+    for created, description, _, _ in entries:
+      if description not in seen:
+        seen.add(description)
+        unique.append((created, description))
+
+    # Sort by timestamp (oldest first).
+    unique.sort(key=lambda x: x[0])
+    return unique
+
